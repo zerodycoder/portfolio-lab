@@ -1,0 +1,39 @@
+{
+  "hero": {
+    "src": "/media/hero.webp",
+    "srcMobile": "/media/hero-m.webp"
+  },
+  "orbit": {
+    "frames": 96,
+    "pattern": "/media/orbit/{i}.webp",
+    "patternMobile": "/media/orbit-m/{i}.webp",
+    "width": 1280,
+    "height": 720
+  },
+  "reveal": {
+    "src": "/media/reveal.mp4",
+    "srcMobile": "/media/reveal-m.mp4"
+  },
+  "ride": {
+    "src": "/media/ride.mp4",
+    "srcMobile": "/media/ride-m.mp4",
+    "poster": "/media/ride-poster.webp"
+  },
+  "legend": {
+    "video": "/media/legend.mp4",
+    "src": "/media/legend.webp"
+  },
+  "colors": {
+    "graphite": "/media/color-graphite.webp",
+    "ember": "/media/color-ember.webp",
+    "ash": "/media/color-ash.webp",
+    "bone": "/media/color-bone.webp",
+    "olive": "/media/color-olive.webp"
+  },
+  "details": [
+    "/media/detail-1.webp",
+    "/media/detail-2.webp",
+    "/media/detail-3.webp",
+    "/media/detail-4.webp"
+  ]
+}

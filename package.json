@@ -1,0 +1,11 @@
+{
+  "name": "portfolio-lab",
+  "private": true,
+  "workspaces": ["sites/*"],
+  "scripts": {
+    "shoot": "node tools/shoot.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.49.0"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "name": "rakhsh",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --port 4173"
+  },
+  "dependencies": {
+    "@fontsource-variable/archivo": "^5.1.0",
+    "@fontsource-variable/jetbrains-mono": "^5.1.0",
+    "gsap": "^3.12.5",
+    "lenis": "^1.1.14"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vite": "^6.0.0"
+  }
+}

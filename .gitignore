@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.vercel/
+assets-inbox/
+tools/out/
+*.log
+.DS_Store
