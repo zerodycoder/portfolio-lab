@@ -22,6 +22,7 @@ import { initReserve } from './modules/reserve';
 import { initRide } from './modules/ride';
 import { initSmooth } from './modules/smooth';
 import { initSpecs } from './modules/specs';
+import { renderStack } from './modules/stack';
 
 gsap.registerPlugin(ScrollTrigger);
 // Mobile address bars resize the viewport while scrolling; don't re-measure every pin when that happens.
@@ -30,6 +31,7 @@ if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
 window.scrollTo(0, 0);
 
 async function boot(): Promise<void> {
+  renderStack();
   const reduced = reducedMotion();
   const media = await loadMedia();
   const sound = new Sound();

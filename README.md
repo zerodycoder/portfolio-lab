@@ -36,6 +36,9 @@ and horizontal overflow in `report.json`. `--sound` enters with sound and record
 ## RAKHSH architecture
 
 - `src/main.ts` boots modules in page order (pinned sections must measure in order), then runs the entry gate.
+- The entry gate lists the stack as "Built with" badges (`src/modules/stack.ts`). Logos come from the Simple Icons
+  package (tree-shaken, only the icons used are bundled); Playwright's is its official SVG from microsoft/playwright.dev.
+  Lenis publishes no vector logo, so it shows its brand red as a marker; Web Audio (a web standard) gets a waveform.
 - `src/lib/sound.ts` synthesises all audio with Web Audio (no audio files): UI ticks, lightning crack, printer,
   ambient room tone, and an electric-motor whine that tracks speed. Audio starts only after "Enter with sound",
   with a soft power-up (peaks around -17 dBFS) and a master fade-in, so a phone at full volume doesn't startle.

@@ -393,13 +393,17 @@ dd {
   position: fixed;
   inset: 0;
   z-index: 110;
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   padding: var(--gutter);
+  padding-bottom: max(var(--gutter), env(safe-area-inset-bottom));
+  overflow-y: auto;
   background: #000;
 }
 
 .gate__inner {
+  margin-block: auto;
   display: grid;
   justify-items: center;
   gap: 26px;
@@ -475,6 +479,70 @@ dd {
   opacity: 1;
 }
 
+/* "Built with" badges along the bottom of the gate. */
+.gate__stack {
+  flex: none;
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  width: min(1060px, 100%);
+  padding-top: 24px;
+}
+
+.gate__stack-label {
+  color: var(--dim);
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 12px 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(236, 230, 220, 0.03);
+  color: var(--muted);
+  font: 500 11px/1 var(--ff-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateY(6px);
+  animation: badge-in 0.8s var(--ease) forwards;
+  animation-delay: calc(350ms + var(--i, 0) * 70ms);
+}
+
+.badge img {
+  width: 15px;
+  height: 15px;
+  object-fit: contain;
+}
+
+.badge__mark {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+}
+
+@keyframes badge-in {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.gate.is-leaving .gate__stack,
 .gate.is-leaving .gate__choices,
 .gate.is-leaving .gate__hint,
 .gate.is-leaving .gate__row,
@@ -2278,6 +2346,26 @@ dd {
 @media (max-width: 760px) {
   .hide-sm {
     display: none;
+  }
+
+  .gate__stack {
+    gap: 10px;
+  }
+
+  .badges {
+    gap: 6px;
+  }
+
+  .badge {
+    height: 27px;
+    gap: 6px;
+    padding: 0 9px 0 8px;
+    font-size: 10px;
+  }
+
+  .badge img {
+    width: 13px;
+    height: 13px;
   }
 
   .sound-toggle {
