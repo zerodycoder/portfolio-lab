@@ -6,7 +6,7 @@ Plumbing they share lives in `packages/kit`.
 | Site | Concept | Status |
 | --- | --- | --- |
 | `sites/rakhsh` | RAKHSH, a fictional electric motorcycle (cinematic, generated media) | Live at rakhsh.zerodycoder.com |
-| `sites/nibbo` | NIBBO, a fictional coding robot for kids (live 3D, everything drawn by code) | Code complete |
+| `sites/nibbo` | NIBBO, a fictional coding robot for kids (live 3D, everything drawn by code) | Live at nibbo.zerodycoder.com |
 
 ## Commands
 
@@ -17,7 +17,7 @@ npm run build -w nibbo                       # type-check + production build int
 npm run preview -w nibbo                     # serve the build (rakhsh :4173, nibbo :4175)
 node tools/process-rakhsh.mjs                # convert assets-inbox/rakhsh → sites/rakhsh/public/media + manifest.json
 node tools/og-nibbo.mjs                      # render NIBBO's 1200×630 social image from the live page (preview running)
-node tools/shoot.mjs <url> tools/out/<run> --site=nibbo [--browser=msedge] [--sound] [--only=desktop|mobile] [--sections=…]
+node tools/shoot.mjs <url> tools/out/<run> --site=nibbo [--browser=msedge] [--sound] [--only=desktop|mobile] [--sections=…] [--resolve=host:ip]
 ```
 
 `shoot.mjs` drives a real browser (Edge with `--browser=msedge`, needed to play H.264 video), screenshots every

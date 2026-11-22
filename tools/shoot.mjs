@@ -2,7 +2,7 @@
 // Usage: node tools/shoot.mjs <url> <outDir> [--site=rakhsh] [--browser=msedge] [--sound] [--only=desktop|mobile]
 //        A section spec is id[@fraction][:action][~seconds]: the fraction is through a pinned section's scroll, or
 //        through the section's own height otherwise.
-//                                            [--sections=a,b@0.5,c:action,d~6]
+//                                            [--sections=a,b@0.5,c:action,d~6] [--resolve=host:ip]
 // The site's scenario (tools/scenarios/<site>.mjs) supplies the default sections, its actions and which elements may
 // overflow. The report covers console errors, page errors, failed requests, video playback, the audio engine state,
 // horizontal overflow and anything the scenario's probe() returns.
@@ -27,9 +27,17 @@ const viewports = [
 ].filter((v) => !only || v.name === only);
 
 await fs.mkdir(outDir, { recursive: true });
+// --resolve=host:ip pins a hostname to an IP (e.g. a new subdomain before local DNS caches have caught up).
+const pin = flag('resolve');
 const browser = await chromium.launch({
   channel: flag('browser'),
-  args: ['--enable-unsafe-swiftshader', '--use-gl=angle', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'],
+  args: [
+    '--enable-unsafe-swiftshader',
+    '--use-gl=angle',
+    '--ignore-gpu-blocklist',
+    '--autoplay-policy=no-user-gesture-required',
+    ...(pin ? [`--host-resolver-rules=MAP ${pin.split(':')[0]} ${pin.split(':')[1]}`] : []),
+  ],
 });
 const report = { site, url };
 
