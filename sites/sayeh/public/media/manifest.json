@@ -1,0 +1,33 @@
+{
+  "cup": {
+    "src": "/media/cup.webp",
+    "crema": "/media/cup-crema.webp",
+    "w": 1536,
+    "h": 1024,
+    "cx": 754.7,
+    "cy": 502.8,
+    "r": 162.8,
+    "bg": "#4b2915"
+  },
+  "roast": {
+    "mp4": "/media/roast.mp4",
+    "mp4Small": "/media/roast-m.mp4",
+    "poster": "/media/roast.webp"
+  },
+  "espresso": {
+    "mp4": "/media/espresso.mp4",
+    "mp4Small": "/media/espresso-m.mp4",
+    "poster": "/media/espresso.webp"
+  },
+  "origins": {
+    "ethiopia": "/media/origin-ethiopia.webp",
+    "colombia": "/media/origin-colombia.webp",
+    "kenya": "/media/origin-kenya.webp",
+    "guatemala": "/media/origin-guatemala.webp"
+  },
+  "hands": "/media/hands.webp",
+  "cafe": {
+    "day": "/media/cafe-day.webp",
+    "night": "/media/cafe-night.webp"
+  }
+}

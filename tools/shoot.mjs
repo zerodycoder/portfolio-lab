@@ -1,7 +1,7 @@
 // Renders a site in a real browser and screenshots each section on desktop and mobile.
 // Usage: node tools/shoot.mjs <url> <outDir> [--site=rakhsh] [--browser=msedge] [--sound] [--only=desktop|mobile]
 //        A section spec is id[@fraction][:action][~seconds]: the fraction is through a pinned section's scroll, or
-//        through the section's own height otherwise.
+//        through the section's own height otherwise. A spec starting with / navigates to that path first.
 //                                            [--sections=a,b@0.5,c:action,d~6] [--resolve=host:ip]
 // The site's scenario (tools/scenarios/<site>.mjs) supplies the default sections, its actions and which elements may
 // overflow. The report covers console errors, page errors, failed requests, video playback, the audio engine state,
@@ -68,6 +68,15 @@ for (const vp of viewports) {
   const audio = await page.evaluate(() => ({ enabled: window.__sound?.enabled ?? null, state: window.__sound?.state ?? null }));
 
   for (const rawSpec of sections) {
+    // "/path" navigates a multi-page site in place (through the site's own router, window.__go) before the
+    // sections that follow, which then refer to the new page.
+    if (rawSpec.startsWith('/')) {
+      await page.evaluate((p) => (window.__go ? window.__go(p) : location.assign(p)), rawSpec);
+      await page.waitForTimeout(1800);
+      if (scenario.probe) probes[rawSpec] = await page.evaluate(scenario.probe);
+      await page.screenshot({ path: file(`page${rawSpec.replace(/[^a-z0-9]+/gi, '-')}`) });
+      continue;
+    }
     // "section~6" waits 6 extra seconds before the screenshot (e.g. to catch a later moment of an animation).
     const [spec, extraWait] = rawSpec.split('~');
     const [target, action] = spec.split(':');
