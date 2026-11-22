@@ -403,7 +403,7 @@ dd {
 }
 
 .gate__inner {
-  margin-block: auto;
+  margin-top: auto;
   display: grid;
   justify-items: center;
   gap: 26px;
@@ -486,7 +486,8 @@ dd {
   justify-items: center;
   gap: 12px;
   width: min(1060px, 100%);
-  padding-top: 24px;
+  margin-bottom: auto;
+  padding-top: clamp(40px, 7vh, 64px);
 }
 
 .gate__stack-label {
