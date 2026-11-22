@@ -1,7 +1,14 @@
 import { gsap } from 'gsap';
 import type Lenis from 'lenis';
-import { $ } from '../lib/dom';
+import { $, finePointer } from '../lib/dom';
 import type { Sound } from '../lib/sound';
+
+/** iOS only delivers device orientation after a permission prompt, which must come from a user gesture. */
+function requestMotion(): void {
+  if (finePointer()) return;
+  const D = window.DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<string> } | undefined;
+  if (typeof D?.requestPermission === 'function') void D.requestPermission().catch(() => undefined);
+}
 
 export type Task = (report: (fraction: number) => void) => Promise<unknown>;
 
@@ -57,6 +64,7 @@ export function runGate(opts: { sound: Sound; lenis: Lenis; tasks: Task[] }): Pr
 
     const enter = (withSound: boolean): void => {
       if (!ready) return;
+      requestMotion();
       sound.setEnabled(withSound);
       sound.crack(0.9);
       gate.classList.add('is-leaving');

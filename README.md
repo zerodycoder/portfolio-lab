@@ -19,7 +19,8 @@ node tools/shoot.mjs http://localhost:4173/ tools/out/<run> [--browser=msedge] [
 
 `shoot.mjs` drives real Chromium (or Edge with `--browser=msedge`, needed to play H.264 video), screenshots every
 section on desktop (1440×900) and mobile (390×844), and reports console errors, failed requests, video playback state
-and horizontal overflow in `report.json`.
+and horizontal overflow in `report.json`. `--sound` enters with sound and records whether the audio engine reached
+`running`; a section written as `top~6` waits 6 extra seconds before its screenshot.
 
 ## Media workflow (RAKHSH)
 
@@ -37,9 +38,15 @@ and horizontal overflow in `report.json`.
 - `src/main.ts` boots modules in page order (pinned sections must measure in order), then runs the entry gate.
 - `src/lib/sound.ts` synthesises all audio with Web Audio (no audio files): UI ticks, lightning crack, printer,
   ambient room tone, and an electric-motor whine that tracks speed. Audio starts only after "Enter with sound".
+  On iPhone it opens the media audio channel (audio session "playback" plus a silent looping `<audio>`) so the
+  ring/silent switch doesn't mute it.
+- Hero: on landscape screens the film stands on the horizon beam between the copy and the wordmark; on portrait
+  screens it is shown 2.4 viewport-widths wide and the camera pans from the rear to the headlight as it ignites.
+  Mouse parallax on desktop, device-tilt parallax on phones (iOS permission is requested on the entry tap).
 - `src/lib/finish.ts` is the shared finish selection; it retints the site (`--accent`) and syncs the configurator
   with the reservation form.
 - `src/modules/*` — one module per section: gate, hero, legend, machine (frame scrubbing on canvas), ignite
-  (hold-to-accelerate gauge with procedural lightning; 0→100 km/h is tuned to 2.9 s), details, specs, ride
+  (hold-to-accelerate gauge with procedural lightning; 0→100 km/h is tuned to 2.9 s), details (scroll-driven
+  horizontal carousel on every screen size), specs, ride
   (scroll velocity drives the HUD), config (lightning-edge wipe), reserve (printable build ticket, PNG download).
 - Smooth scrolling is Lenis on GSAP's ticker; scroll-linked motion uses ScrollTrigger.

@@ -2,7 +2,10 @@ import { gsap } from 'gsap';
 import { $, $$, devMissing } from '../lib/dom';
 import type { Media } from '../lib/media';
 
-/** Detail shots: a pinned horizontal track on desktop, a native swipe carousel on touch/narrow screens. */
+/**
+ * Detail shots: a pinned track that slides sideways as you scroll down, on every screen size.
+ * With reduced motion it falls back to a native swipe carousel.
+ */
 export function initDetails(media: Media): void {
   const root = $('[data-details]');
   const track = $('[data-details-track]', root);
@@ -20,7 +23,8 @@ export function initDetails(media: Media): void {
   });
 
   const mm = gsap.matchMedia();
-  mm.add('(min-width: 900px)', () => {
+  mm.add('(prefers-reduced-motion: no-preference)', () => {
+    root.classList.add('is-pinned');
     const distance = (): number => Math.max(0, track.scrollWidth - window.innerWidth);
     gsap.to(track, {
       x: () => -distance(),
@@ -35,5 +39,6 @@ export function initDetails(media: Media): void {
         invalidateOnRefresh: true,
       },
     });
+    return () => root.classList.remove('is-pinned');
   });
 }

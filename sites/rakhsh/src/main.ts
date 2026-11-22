@@ -24,6 +24,8 @@ import { initSmooth } from './modules/smooth';
 import { initSpecs } from './modules/specs';
 
 gsap.registerPlugin(ScrollTrigger);
+// Mobile address bars resize the viewport while scrolling; don't re-measure every pin when that happens.
+ScrollTrigger.config({ ignoreMobileResize: true });
 if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
 window.scrollTo(0, 0);
 
@@ -31,6 +33,8 @@ async function boot(): Promise<void> {
   const reduced = reducedMotion();
   const media = await loadMedia();
   const sound = new Sound();
+  // Exposed for tools/shoot.mjs, which checks the audio engine really starts after the entry tap.
+  (window as unknown as { __sound: Sound }).__sound = sound;
   const lenis = initSmooth(reduced);
 
   initGrain();

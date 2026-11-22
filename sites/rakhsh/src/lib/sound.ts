@@ -14,6 +14,31 @@ type MotorGraph = {
 
 type Live = { ctx: AudioContext; out: GainNode; noise: AudioBuffer };
 
+/** A tenth of a second of 8-bit silence as a WAV data URI, used to open the media audio channel on iOS. */
+function silentWav(): string {
+  const samples = 800;
+  const bytes = new Uint8Array(44 + samples);
+  const view = new DataView(bytes.buffer);
+  const text = (o: number, t: string): void => [...t].forEach((c, i) => view.setUint8(o + i, c.charCodeAt(0)));
+  text(0, 'RIFF');
+  view.setUint32(4, 36 + samples, true);
+  text(8, 'WAVE');
+  text(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, 8000, true);
+  view.setUint32(28, 8000, true);
+  view.setUint16(32, 1, true);
+  view.setUint16(34, 8, true);
+  text(36, 'data');
+  view.setUint32(40, samples, true);
+  bytes.fill(128, 44);
+  let bin = '';
+  bytes.forEach((b) => (bin += String.fromCharCode(b)));
+  return `data:audio/wav;base64,${btoa(bin)}`;
+}
+
 export class Sound {
   enabled = false;
   private ctx: AudioContext | null = null;
@@ -22,6 +47,33 @@ export class Sound {
   private motorGraph: MotorGraph | null = null;
   private ambient = false;
   private listeners = new Set<(on: boolean) => void>();
+  private mediaChannel: HTMLAudioElement | null = null;
+
+  /** 'none' until sound is first enabled; otherwise the AudioContext state. */
+  get state(): string {
+    return this.ctx?.state ?? 'none';
+  }
+
+  /**
+   * iPhones mute Web Audio while the ring/silent switch is on. Declaring a "playback" audio session (Safari 17+)
+   * and keeping a silent <audio> element playing (older iOS) puts the page on the media channel, which the
+   * switch does not mute: the same channel videos use. Must run inside the user's tap.
+   */
+  private openMediaChannel(): void {
+    const nav = navigator as Navigator & { audioSession?: { type: string } };
+    try {
+      if (nav.audioSession) nav.audioSession.type = 'playback';
+    } catch {
+      /* not supported */
+    }
+    if (!this.mediaChannel) {
+      const a = new Audio(silentWav());
+      a.loop = true;
+      a.setAttribute('playsinline', '');
+      this.mediaChannel = a;
+    }
+    void this.mediaChannel.play().catch(() => undefined);
+  }
 
   private ensure(): AudioContext | null {
     if (this.ctx) return this.ctx;
@@ -47,12 +99,20 @@ export class Sound {
     this.ctx = ctx;
     this.master = master;
     this.noise = buf;
+
+    // Mobile browsers suspend audio when the tab is hidden or a call comes in; wake it on return or the next tap.
+    const wake = (): void => {
+      if (this.enabled && ctx.state !== 'running') void ctx.resume();
+    };
+    document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && wake());
+    window.addEventListener('pointerdown', wake, { passive: true });
     return ctx;
   }
 
   setEnabled(on: boolean): void {
     this.enabled = on;
     if (on) {
+      this.openMediaChannel();
       const ctx = this.ensure();
       if (ctx && this.master) {
         void ctx.resume();
@@ -63,6 +123,7 @@ export class Sound {
     } else if (this.ctx && this.master) {
       this.master.gain.cancelScheduledValues(this.ctx.currentTime);
       this.master.gain.setTargetAtTime(0, this.ctx.currentTime, 0.04);
+      this.mediaChannel?.pause();
     }
     this.listeners.forEach((fn) => fn(on));
   }

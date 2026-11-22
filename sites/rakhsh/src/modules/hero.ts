@@ -1,5 +1,5 @@
 import { gsap } from 'gsap';
-import { $, $$, devMissing, finePointer } from '../lib/dom';
+import { $, $$, clamp, devMissing, finePointer } from '../lib/dom';
 import { loadImage, pick, videoReady, type Media } from '../lib/media';
 import { splitChars } from '../lib/split';
 
@@ -9,6 +9,8 @@ export type Hero = { preload(report: (f: number) => void): Promise<void>; intro(
 const FRAME_ASPECT = 16 / 9;
 const FRAME_TOP = 0.1;
 const FRAME_BOTTOM = 0.88;
+// On portrait screens the film is shown this many viewport-widths wide and the camera travels along the bike.
+const PORTRAIT_ZOOM = 2.4;
 
 /**
  * Hero: light-sweep reveal video (or the still, or a designed light-bar fallback), a wordmark that rises
@@ -55,32 +57,60 @@ export function initHero(media: Media, reduced: boolean): Hero {
   const films = [img, video].filter((el): el is HTMLImageElement | HTMLVideoElement => el !== null);
   const topBlock = $('.hero__top', root);
   const bottomBlock = $('.hero__bottom', root);
+  let pan = 0;
+  let lastGeometry = '';
+  let introduced = false;
+  let panTimeline: gsap.core.Timeline | null = null;
+
+  /**
+   * Portrait screens can't fit the whole bike at a size worth looking at, so the film stays big and the camera
+   * travels instead: it opens on the rear, glides to the headlight as it ignites, then drifts slowly back and forth.
+   */
+  const startPan = (fromIntro: boolean): void => {
+    panTimeline?.kill();
+    gsap.set(films, { x: 0 });
+    if (!pan || reduced) return;
+    const tl = gsap.timeline();
+    if (fromIntro) tl.fromTo(films, { x: pan }, { x: 0, duration: 8.5, ease: 'power2.inOut' });
+    tl.to(films, { x: pan, duration: 16, ease: 'sine.inOut', repeat: -1, yoyo: true, delay: fromIntro ? 2.5 : 0 });
+    panTimeline = tl;
+  };
+
   const layoutFilm = (): void => {
     if (!films.length) return;
-    topBlock.style.top = '';
     const vw = root.clientWidth;
     const top = topBlock.offsetTop + topBlock.offsetHeight + 16;
     const floor = bottomBlock.offsetTop + beam.offsetTop;
     const span = FRAME_BOTTOM - FRAME_TOP;
     let h = (floor - top) / span;
     let w = h * FRAME_ASPECT;
-    let y = floor - h * FRAME_BOTTOM;
-    const maxW = vw * 0.98;
-    if (w > maxW) {
-      // Width-bound (portrait screens): the bike still stands on the beam, and the copy moves down to sit
-      // just above it, leaving the open space at the top like a poster rather than a gap in the middle.
-      w = maxW;
-      h = w / FRAME_ASPECT;
-      y = floor - h * FRAME_BOTTOM;
-      const copyTop = y + h * FRAME_TOP - topBlock.offsetHeight - 28;
-      if (copyTop > topBlock.offsetTop) topBlock.style.top = `${copyTop.toFixed(1)}px`;
+    let x = (vw - w) / 2;
+    pan = 0;
+    if (w > vw * 0.98) {
+      if (root.clientHeight > vw) {
+        w = Math.min(w, vw * PORTRAIT_ZOOM);
+        h = w / FRAME_ASPECT;
+        x = -w * 0.04; // front of the bike, headlight in view
+        pan = vw - w * 0.96 - x; // travel to the rear wheel (negative)
+      } else {
+        w = vw * 0.98;
+        h = w / FRAME_ASPECT;
+        x = (vw - w) / 2;
+      }
     }
+    const y = floor - h * FRAME_BOTTOM;
     films.forEach((el) => {
-      el.style.left = `${((vw - w) / 2).toFixed(1)}px`;
+      el.style.left = `${x.toFixed(1)}px`;
       el.style.top = `${y.toFixed(1)}px`;
       el.style.width = `${w.toFixed(1)}px`;
       el.style.height = `${h.toFixed(1)}px`;
     });
+    root.classList.toggle('is-panning', pan !== 0);
+    // Only restart the camera move when the geometry really changed; spurious resize callbacks (screenshots,
+    // keyboards, toolbar jiggles) must not yank it back to the start.
+    const geometry = `${w.toFixed(0)}:${pan.toFixed(0)}`;
+    if (introduced && geometry !== lastGeometry) startPan(false);
+    lastGeometry = geometry;
   };
   layoutFilm();
   new ResizeObserver(layoutFilm).observe(root);
@@ -100,15 +130,24 @@ export function initHero(media: Media, reduced: boolean): Hero {
     .to(ui, { opacity: 0, yPercent: -30, ease: 'none' }, 0)
     .to(beam, { opacity: 0, scaleY: 0.2, ease: 'none' }, 0);
 
-  if (finePointer() && !reduced) {
+  if (!reduced) {
     const mx = gsap.quickTo(stage, 'x', { duration: 1.2, ease: 'power3.out' });
     const my = gsap.quickTo(stage, 'y', { duration: 1.2, ease: 'power3.out' });
-    root.addEventListener('pointermove', (e) => {
-      const nx = e.clientX / window.innerWidth - 0.5;
-      const ny = e.clientY / window.innerHeight - 0.5;
-      mx(nx * -18);
-      my(ny * -10);
-    });
+    if (finePointer()) {
+      root.addEventListener('pointermove', (e) => {
+        const nx = e.clientX / window.innerWidth - 0.5;
+        const ny = e.clientY / window.innerHeight - 0.5;
+        mx(nx * -18);
+        my(ny * -10);
+      });
+    } else {
+      // Phones: the same parallax, driven by tilting the device (permission is asked at the gate on iOS).
+      window.addEventListener('deviceorientation', (e) => {
+        if (e.gamma === null || e.beta === null) return;
+        mx((clamp(e.gamma, -25, 25) / 25) * -22);
+        my((clamp(e.beta - 50, -25, 25) / 25) * -12);
+      });
+    }
   }
 
   return {
@@ -121,6 +160,8 @@ export function initHero(media: Media, reduced: boolean): Hero {
       report(1);
     },
     intro() {
+      introduced = true;
+      startPan(true);
       const tl = gsap.timeline();
       if (video) {
         video.currentTime = 0;

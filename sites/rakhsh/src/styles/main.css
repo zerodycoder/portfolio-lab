@@ -723,6 +723,7 @@ dd {
   top: 0;
   width: 100%;
   height: 100%;
+  max-width: none; /* the box is wider than the screen on phones (the camera pans across it) */
   object-fit: cover;
   -webkit-mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent), linear-gradient(180deg, transparent, #000 6%, #000 86%, transparent);
   -webkit-mask-composite: source-in;
@@ -2237,7 +2238,7 @@ dd {
     margin-top: 0;
   }
 
-  .details__track {
+  .details:not(.is-pinned) .details__track {
     width: auto;
     overflow-x: auto;
     padding-bottom: 8px;
@@ -2247,7 +2248,7 @@ dd {
     -webkit-overflow-scrolling: touch;
   }
 
-  .details__track::-webkit-scrollbar {
+  .details:not(.is-pinned) .details__track::-webkit-scrollbar {
     display: none;
   }
 
@@ -2259,10 +2260,6 @@ dd {
   .card__media {
     height: auto;
     aspect-ratio: 1;
-  }
-
-  .details__hint {
-    display: none;
   }
 
   .specs__grid {
@@ -2318,13 +2315,67 @@ dd {
     gap: 8px;
   }
 
+  /* Legend: the fiery horse owns the top of the screen, the story reads underneath. */
+  .legend {
+    align-content: end;
+    padding-bottom: clamp(40px, 8svh, 72px);
+  }
+
+  .legend__bg {
+    inset: 0 0 auto 0;
+    height: 60%;
+    opacity: 0.95;
+    background-position: 68% 50%;
+  }
+
+  .legend__bg video {
+    object-position: 68% 50%;
+  }
+
+  .legend__bg::after {
+    background: linear-gradient(180deg, rgba(5, 5, 5, 0.35) 0%, rgba(5, 5, 5, 0) 26%, rgba(5, 5, 5, 0) 52%, #050505 100%);
+  }
+
+  .legend.no-bg .legend__bg {
+    height: 100%;
+  }
+
+  .details__hint {
+    display: none;
+  }
+
+  .details__head .h2 {
+    font-size: clamp(32px, 9vw, 44px);
+  }
+
+  .config__stage {
+    margin: 0 calc(-1 * var(--gutter));
+  }
+
   .machine__rail {
     display: none;
   }
 
+  /* Ride: crop toward the bike, bigger type, compact HUD. */
+  .ride__media video {
+    object-position: 38% 50%;
+  }
+
+  .ride__rows {
+    font-size: 25vw;
+  }
+
   .ride__hud {
-    left: var(--gutter);
-    right: var(--gutter);
+    padding: 12px 14px;
+    gap: 6px;
+  }
+
+  .ride__hud div {
+    grid-template-columns: 62px 40px auto;
+  }
+
+  .ride__hint {
+    display: none;
   }
 
   .ride__cap {

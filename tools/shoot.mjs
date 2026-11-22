@@ -38,11 +38,16 @@ for (const vp of viewports) {
   await page.waitForSelector('[data-gate].is-ready', { timeout: 30000 });
   await page.waitForTimeout(700);
   await page.screenshot({ path: path.join(outDir, `${name}-01-gate-ready.png`) });
-  await page.click('[data-enter="mute"]');
+  // --sound enters with sound and records whether the Web Audio engine actually reached "running".
+  const withSound = args.includes('--sound');
+  await page.click(withSound ? '[data-enter="sound"]' : '[data-enter="mute"]');
   await page.waitForTimeout(3200);
+  const audio = await page.evaluate(() => ({ enabled: window.__sound?.enabled ?? null, state: window.__sound?.state ?? null }));
 
   let n = 2;
-  for (const spec of sections) {
+  for (const rawSpec of sections) {
+    // "section~6" waits 6 extra seconds before the screenshot (e.g. to catch a later moment of an animation).
+    const [spec, extraWait] = rawSpec.split('~');
     const [target, action] = spec.split(':');
     const [id, frac] = target.split('@');
     await page.evaluate(
@@ -60,7 +65,7 @@ for (const vp of viewports) {
       },
       { id, frac },
     );
-    await page.waitForTimeout(1400);
+    await page.waitForTimeout(1400 + Number(extraWait ?? 0) * 1000);
 
     if (action === 'hold') {
       await page.evaluate(() => {
@@ -103,7 +108,7 @@ for (const vp of viewports) {
         .map((v) => ({ src: v.currentSrc.split('/').pop(), ready: v.readyState, t: Number(v.currentTime.toFixed(2)), paused: v.paused, error: v.error?.code ?? null })),
     );
     if (videos.length) (media[spec] = videos);
-    const label = `${id}${frac ? `@${frac}` : ''}${action ? `-${action}` : ''}`.replace(/[@.]/g, '_');
+    const label = `${id}${frac ? `@${frac}` : ''}${action ? `-${action}` : ''}${extraWait ? `-t${extraWait}` : ''}`.replace(/[@.]/g, '_');
     await page.screenshot({ path: path.join(outDir, `${name}-${String(n++).padStart(2, '0')}-${label}.png`) });
   }
 
@@ -119,7 +124,7 @@ for (const vp of viewports) {
       .slice(0, 8)
       .map((el) => `${el.tagName.toLowerCase()}.${[...el.classList].join('.')}`),
   }));
-  report[name] = { issues, media, overflow };
+  report[name] = { issues, audio, media, overflow };
   await context.close();
 }
 
