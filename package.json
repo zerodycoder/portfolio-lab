@@ -1,7 +1,10 @@
 {
   "name": "portfolio-lab",
   "private": true,
-  "workspaces": ["sites/*"],
+  "workspaces": [
+    "packages/*",
+    "sites/*"
+  ],
   "scripts": {
     "shoot": "node tools/shoot.mjs"
   },

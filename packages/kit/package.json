@@ -1,0 +1,14 @@
+{
+  "name": "@portfolio-lab/kit",
+  "private": true,
+  "type": "module",
+  "description": "Plumbing shared by the showcase sites: audio engine core, entry gate, smooth scrolling, Built-with badges, DOM helpers.",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "peerDependencies": {
+    "gsap": "^3.12.5",
+    "lenis": "^1.1.14",
+    "simple-icons": "^16.38.1"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "name": "nibbo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --port 4175"
+  },
+  "dependencies": {
+    "@fontsource-variable/bricolage-grotesque": "^5.3.0",
+    "@fontsource-variable/martian-mono": "^5.3.0",
+    "@portfolio-lab/kit": "*",
+    "gsap": "^3.12.5",
+    "lenis": "^1.1.14",
+    "simple-icons": "^16.38.1",
+    "three": "^0.187.0"
+  },
+  "devDependencies": {
+    "@types/three": "^0.187.0",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.0"
+  }
+}

@@ -20,7 +20,7 @@ import { initMachine } from './modules/machine';
 import { initNav } from './modules/nav';
 import { initReserve } from './modules/reserve';
 import { initRide } from './modules/ride';
-import { initSmooth } from './modules/smooth';
+import { initSmooth } from '@portfolio-lab/kit/smooth';
 import { initSpecs } from './modules/specs';
 import { renderStack } from './modules/stack';
 

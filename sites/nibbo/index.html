@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>NIBBO — The little robot kids teach to think</title>
+    <meta
+      name="description"
+      content="Nibbo is a pocket-sized robot that kids aged 6–12 teach to move, feel and find its way home. They think they're playing. They're learning to code."
+    />
+    <meta name="theme-color" content="#f5efe4" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="NIBBO" />
+    <meta property="og:title" content="NIBBO — The little robot kids teach to think" />
+    <meta property="og:description" content="A pocket-sized robot kids program with blocks. Meet it, take it apart, teach it, adopt it." />
+    <meta property="og:url" content="https://nibbo.zerodycoder.com/" />
+    <meta property="og:image" content="https://nibbo.zerodycoder.com/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <link rel="canonical" href="https://nibbo.zerodycoder.com/" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="https://nibbo.zerodycoder.com/og.png" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <noscript><style>.gate{display:none!important}</style></noscript>
+  </head>
+  <body>
+    <canvas class="stage" data-stage aria-hidden="true"></canvas>
+
+    <!-- Entry gate: Nibbo "charges" while the scene compiles, then asks to be woken (audio needs a user gesture). -->
+    <div class="gate" data-gate role="dialog" aria-modal="true" aria-label="Wake Nibbo up">
+      <div class="gate__inner">
+        <div class="gate__visor" data-gate-visor><canvas data-gate-face width="512" height="256"></canvas></div>
+        <p class="gate__title" data-gate-title>Nibbo is charging</p>
+        <div class="gate__battery" aria-hidden="true"><span data-gate-fill></span></div>
+        <p class="gate__count mono"><span data-gate-count>000</span>%</p>
+        <ul class="gate__log mono" data-gate-log aria-hidden="true"></ul>
+        <div class="gate__choices">
+          <button class="btn btn--accent btn--big" type="button" data-enter="sound">
+            <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4Z" /><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+            Wake Nibbo up
+          </button>
+          <button class="btn btn--ghost" type="button" data-enter="mute">Wake it quietly</button>
+        </div>
+        <p class="gate__hint mono">Sound on is more fun</p>
+      </div>
+      <div class="gate__stack">
+        <p class="gate__stack-label mono">Built with</p>
+        <ul class="badges" data-badges aria-label="Technologies this site is built with"></ul>
+      </div>
+    </div>
+
+    <header class="nav" data-nav>
+      <a class="nav__logo" href="#top" aria-label="Nibbo, back to top">
+        <span class="logo-face" aria-hidden="true"><i></i><i></i></span>nibbo
+      </a>
+      <nav class="nav__links" aria-label="Sections">
+        <a href="#inside">Inside</a>
+        <a href="#feelings">Feelings</a>
+        <a href="#play">Play</a>
+        <a href="#make">Make yours</a>
+        <a href="#specs">Specs</a>
+      </nav>
+      <div class="nav__right">
+        <button class="sound-toggle" type="button" data-sound-toggle aria-pressed="false" aria-label="Sound">
+          <span class="bars" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+          <span class="sound-toggle__label mono" data-sound-label>Sound off</span>
+        </button>
+        <a class="btn btn--small btn--accent" href="#adopt">Adopt</a>
+      </div>
+    </header>
+
+    <main>
+      <!-- 01 Hello -->
+      <section class="hero" id="top" aria-label="Meet Nibbo">
+        <p class="eyebrow hero__eyebrow front">A tiny robot for big thinkers · Ages 6–12</p>
+        <h1 class="hero__title behind">
+          <span class="hero__hi">Hi, I'm</span>
+          <span class="hero__name" data-hero-name>Nibbo.</span>
+        </h1>
+        <div class="slot hero__slot" data-slot="hero" aria-hidden="true"></div>
+        <p class="hint hero__hint front" data-hint><span data-hint-fine>Drag me. Go on.</span><span data-hint-touch>Tap me. Or pick me up.</span></p>
+        <div class="hero__foot front">
+          <p class="hero__lede">The pocket-sized robot kids teach to move, feel and find its way home. They think they're playing. They're learning to code.</p>
+          <div class="hero__ctas">
+            <a class="btn btn--accent" href="#adopt"><span>Adopt Nibbo · <span data-price>$149</span></span></a>
+            <a class="btn btn--ghost" href="#play">Play with me</a>
+          </div>
+        </div>
+        <p class="scroll-cue mono front" aria-hidden="true"><span></span>Scroll. I'll come with you.</p>
+      </section>
+
+      <!-- 02 Chat -->
+      <section class="chat" id="hello" aria-label="Nibbo introduces itself">
+        <ol class="chat__thread behind" data-chat>
+          <li class="bubble" data-mood="happy">Oh, hi! You found me.</li>
+          <li class="bubble" data-mood="idle">I'm 11&nbsp;cm tall and I weigh about as much as an apple.</li>
+          <li class="bubble" data-mood="joy">I can roll, spin, wave, dance and sulk. Mostly not sulk.</li>
+          <li class="bubble bubble--you" data-mood="curious">Can you do a backflip?</li>
+          <li class="bubble" data-mood="sad">Not yet. Here's the thing: I don't know very much.</li>
+          <li class="bubble" data-mood="curious">That's your job. Snap a few blocks together and I learn something new.</li>
+          <li class="bubble bubble--you" data-mood="surprised">Wait, I'm the teacher?</li>
+          <li class="bubble" data-mood="starry">You're the teacher. Want to see how I work first?</li>
+        </ol>
+        <div class="chat__stick" aria-hidden="true"><div class="slot chat__slot" data-slot="hello"></div></div>
+      </section>
+
+      <!-- 03 Inside -->
+      <section class="inside" id="inside" aria-labelledby="inside-title">
+        <div class="inside__pin">
+          <header class="section-head inside__head front">
+            <p class="eyebrow">Inside</p>
+            <h2 id="inside-title">What's inside a very small robot.</h2>
+            <p class="lede">Scroll to take Nibbo apart. Don't worry, it puts itself back together.</p>
+          </header>
+          <div class="slot inside__slot" data-slot="inside" aria-hidden="true"></div>
+          <svg class="inside__lines front" data-lines aria-hidden="true"></svg>
+          <ul class="tags front" data-tags aria-hidden="true"></ul>
+          <div class="part-card front" data-part-card aria-live="polite">
+            <p class="part-card__n mono" data-part-n>01 / 08</p>
+            <h3 data-part-title>Face</h3>
+            <p data-part-text></p>
+          </div>
+          <div class="xray front">
+            <button class="switch" type="button" role="switch" aria-checked="false" data-xray>
+              <span class="switch__track"><span class="switch__thumb"></span></span>
+              <span>X-ray</span>
+            </button>
+            <p class="xray__stats mono" data-xray-stats>Every part on this page is drawn by code.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 04 Feelings -->
+      <section class="feelings" id="feelings" aria-labelledby="feelings-title">
+        <div class="feelings__grid">
+          <header class="section-head front">
+            <p class="eyebrow">Feelings</p>
+            <h2 id="feelings-title">It has feelings. Mostly good ones.</h2>
+            <p class="lede">Nibbo's face is 800 tiny lights. Its mood follows what happens: a win, a bump, a nap, a hug. Try a few.</p>
+          </header>
+          <div class="slot feelings__slot" data-slot="feelings" aria-hidden="true"></div>
+          <div class="moods front">
+            <div class="moods__list" role="radiogroup" aria-label="Moods" data-moods></div>
+            <p class="moods__caption" data-mood-caption aria-live="polite"></p>
+            <p class="hint moods__tip"><span data-hint-fine>Tip: circle your mouse really fast.</span><span data-hint-touch>Tip: give your phone a shake.</span></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 05 Play -->
+      <section class="play" id="play" aria-labelledby="play-title">
+        <header class="section-head play__head front">
+          <p class="eyebrow">Play</p>
+          <h2 id="play-title">Get Nibbo home.</h2>
+          <p class="lede">Snap blocks together, press Go, and Nibbo follows your plan exactly. That's all code is.</p>
+        </header>
+        <div class="play__grid">
+          <div class="play__board"><div class="slot play__slot" data-slot="play" aria-hidden="true"></div></div>
+          <div class="play__panel front">
+            <div class="level">
+              <div>
+                <p class="mono level__num">Level <b data-level-num>1</b> of <span data-level-total>5</span></p>
+                <h3 class="level__name" data-level-name>First steps</h3>
+              </div>
+              <div class="level__dots" data-level-dots role="tablist" aria-label="Levels"></div>
+            </div>
+            <p class="play__goal" data-goal></p>
+            <div class="palette" data-palette aria-label="Blocks"></div>
+            <div class="program-wrap">
+              <ol class="program" data-program aria-label="Your program"></ol>
+              <p class="program__count mono" data-count></p>
+            </div>
+            <div class="play__actions">
+              <button class="btn btn--accent btn--go" type="button" data-run>
+                <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12-7.5Z" /></svg><span data-run-label>Go!</span>
+              </button>
+              <button class="btn btn--ghost" type="button" data-clear>Clear</button>
+            </div>
+            <p class="play__status" data-status aria-live="polite"></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 06 Make yours -->
+      <section class="make" id="make" aria-labelledby="make-title">
+        <div class="make__grid">
+          <header class="section-head front">
+            <p class="eyebrow">Make yours</p>
+            <h2 id="make-title">Make it yours.</h2>
+            <p class="lede">Six shells, four face lights and a few very important hats.</p>
+          </header>
+          <div class="make__stage">
+            <div class="slot make__slot" data-slot="make" aria-hidden="true"></div>
+            <p class="hint make__hint front">Drag to spin</p>
+          </div>
+          <div class="options front">
+            <fieldset class="opt">
+              <legend class="mono">Shell <b data-shell-name>Tangerine</b></legend>
+              <div class="swatches" data-shells></div>
+            </fieldset>
+            <fieldset class="opt">
+              <legend class="mono">Face light <b data-led-name>Ice</b></legend>
+              <div class="swatches" data-leds></div>
+            </fieldset>
+            <fieldset class="opt">
+              <legend class="mono">On its head <b data-acc-name>Nothing</b></legend>
+              <div class="chips" data-accs></div>
+            </fieldset>
+            <p class="make__price"><span class="mono">Your Nibbo</span><b data-price>$149</b></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 07 Specs -->
+      <section class="specs" id="specs" aria-labelledby="specs-title">
+        <header class="section-head specs__head front">
+          <p class="eyebrow">Specs</p>
+          <h2 id="specs-title">The small print, in big type.</h2>
+          <div class="slot specs__slot" data-slot="specs" aria-hidden="true"></div>
+        </header>
+        <ul class="spec-grid front">
+          <li class="spec spec--tang"><b><span data-count-to="11">11</span>&nbsp;cm</b><span>tall, and 320&nbsp;g. About one apple.</span></li>
+          <li class="spec spec--sky"><b><span data-count-to="4">4</span>&nbsp;h</b><span>of play. Back to full in 45&nbsp;minutes over USB-C.</span></li>
+          <li class="spec spec--mint"><b><span data-count-to="800">800</span></b><span>LEDs in its face. Fifteen expressions so far.</span></li>
+          <li class="spec spec--butter"><b>6–12</b><span>years old. Plus the grown-ups who borrow it.</span></li>
+          <li class="spec spec--bubble"><b>0</b><span>cameras, clouds, accounts or ads. Your code stays on the robot.</span></li>
+          <li class="spec spec--lilac"><b><span data-count-to="2000">2000</span>×</b><span>dropped from a kitchen table in testing. Still friendly.</span></li>
+        </ul>
+        <div class="box-list front">
+          <h3 class="mono">In the box</h3>
+          <ul>
+            <li>Nibbo</li>
+            <li>40 screen-free coding cards</li>
+            <li>Fold-out 5 × 5 play mat</li>
+            <li>USB-C cable</li>
+            <li>A sheet of stickers</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- 08 Adopt -->
+      <section class="adopt" id="adopt" aria-labelledby="adopt-title">
+        <div class="adopt__grid">
+          <header class="section-head front">
+            <p class="eyebrow">Adopt</p>
+            <h2 id="adopt-title">Give it a name.</h2>
+            <p class="lede">Type one and Nibbo tries it on, out loud.</p>
+          </header>
+          <div class="adopt__stage"><div class="slot adopt__slot" data-slot="adopt" aria-hidden="true"></div></div>
+          <form class="adopt__form front" data-adopt-form novalidate>
+            <label class="field">
+              <span class="mono">Name</span>
+              <input type="text" name="name" maxlength="12" autocomplete="off" spellcheck="false" data-name-input placeholder="Nibbo" />
+            </label>
+            <p class="adopt__summary" data-summary></p>
+            <button class="btn btn--accent btn--big" type="submit" data-adopt-btn><span>Adopt <span data-adopt-name>Nibbo</span> · <span data-price>$149</span></span></button>
+            <div class="adopt__done" data-adopt-done hidden>
+              <p class="adopt__packed"><b data-packed-name>Nibbo</b> is packed. Ships spring 2027.</p>
+              <div class="adopt__actions">
+                <button class="btn btn--accent" type="button" data-share><span>Copy <span data-share-name>Nibbo</span>’s link</span></button>
+                <button class="btn btn--ghost" type="button" data-unpack>Unpack</button>
+              </div>
+              <p class="adopt__share-note mono" data-share-note>The link opens this page with your exact robot.</p>
+            </div>
+            <p class="adopt__small">NIBBO is a concept product, designed and built as a portfolio piece. Nothing is sold and nothing is charged.</p>
+          </form>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer" id="footer">
+      <div class="slot footer__slot" data-slot="footer" aria-hidden="true"></div>
+      <p class="footer__night behind" aria-hidden="true">Goodnight.</p>
+      <div class="footer__row front">
+        <a class="footer__mark" href="#top" aria-label="Back to top"><span class="logo-face" aria-hidden="true"><i></i><i></i></span>nibbo</a>
+        <p class="footer__credit">Concept, design and code by <b>zerodycoder</b>. Built with Claude Code.<br />No 3D files, no photos: everything you see is drawn by code.</p>
+        <a class="btn btn--ghost btn--small" href="#top">Wake it up ↑</a>
+      </div>
+    </footer>
+
+    <div class="toast mono" data-toast role="status" aria-live="polite"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

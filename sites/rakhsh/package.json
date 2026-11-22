@@ -10,6 +10,7 @@
   "dependencies": {
     "@fontsource-variable/archivo": "^5.1.0",
     "@fontsource-variable/jetbrains-mono": "^5.1.0",
+    "@portfolio-lab/kit": "*",
     "gsap": "^3.12.5",
     "lenis": "^1.1.14",
     "simple-icons": "^16.38.1"
