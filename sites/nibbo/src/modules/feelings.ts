@@ -4,6 +4,7 @@ import type { Sound } from '../lib/sound';
 import type { Brain } from '../three/brain';
 import type { Director, Slot } from '../three/director';
 import { LedFace, type Mood } from '../three/face';
+import type { Tricks } from './tricks';
 
 const MOODS: { mood: Mood; label: string; tint: string; caption: string }[] = [
   { mood: 'happy', label: 'Happy', tint: '#ffe9c2', caption: 'Its default setting. Gets even happier when you finish a level together.' },
@@ -16,7 +17,7 @@ const MOODS: { mood: Mood; label: string; tint: string; caption: string }[] = [
 ];
 
 /** Mood buttons, each with a live mini LED face. Picking one changes the robot's face, body language and voice. */
-export function initFeelings(o: { director: Director; brain: Brain; sound: Sound; ledHex: string }): { recolor(hex: string): void } {
+export function initFeelings(o: { director: Director; brain: Brain; sound: Sound; tricks: Tricks; ledHex: string }): { recolor(hex: string): void } {
   const { director, brain, sound } = o;
   const slot: Slot = { id: 'feelings', el: $('[data-slot="feelings"]'), mood: 'happy', draggable: true };
   director.add(slot);
@@ -38,7 +39,10 @@ export function initFeelings(o: { director: Director; brain: Brain; sound: Sound
     face.canvas.setAttribute('aria-hidden', 'true');
     faces.push(face);
     btn.append(face.canvas, document.createTextNode(m.label));
-    btn.addEventListener('click', () => pick(i));
+    btn.addEventListener('click', () => {
+      pick(i);
+      o.tricks.find('mood');
+    });
     list.appendChild(btn);
     return btn;
   });

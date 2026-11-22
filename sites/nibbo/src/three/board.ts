@@ -14,11 +14,12 @@ import type { Stage } from './stage';
 
 const TILT = 0.6;
 const ROBOT_CELLS = 1.62; // robot height in cells
-const BLOCK_COLORS = ['#ff6a2b', '#4a8bff', '#ffc531', '#34cf9b', '#ff77b0', '#a98bff'];
+export const BLOCK_COLORS = ['#ff6a2b', '#4a8bff', '#ffc531', '#34cf9b', '#ff77b0', '#a98bff'];
 const LETTERS = 'NIBBO';
 
 const letterTextures = new Map<string, THREE.CanvasTexture>();
-function letterTexture(ch: string): THREE.CanvasTexture {
+/** A cream letter tile for a wooden toy block (cached per letter). */
+export function letterTexture(ch: string): THREE.CanvasTexture {
   const hit = letterTextures.get(ch);
   if (hit) return hit;
   const c = document.createElement('canvas');

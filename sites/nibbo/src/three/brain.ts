@@ -15,6 +15,7 @@ import type { Robot } from './robot';
  */
 
 type PhysState = 'grounded' | 'held' | 'falling';
+export type BrainEvent = 'poke' | 'pickup' | 'toss' | 'dizzy' | 'grumpy' | 'sleep' | 'wake';
 
 const SLEEPY_AFTER = 26;
 const ASLEEP_AFTER = 34;
@@ -31,6 +32,7 @@ export class Brain {
   readonly bounds = { x: 3.2, y: 2.6 };
   /** Called whenever the visitor plays with the robot (poke or pick-up). */
   onPlay: (() => void) | null = null;
+  private listeners = new Set<(e: BrainEvent) => void>();
 
   private baseMood: Mood = 'idle';
   private reaction: { mood: Mood; until: number } | null = null;
@@ -44,6 +46,9 @@ export class Brain {
   private gazeOverride: THREE.Vector3 | null = null;
   private pointerSeen = false;
   private wanderAt = 0;
+  private glanceAt: THREE.Vector3 | null = null;
+  private glanceUntil = 0;
+  private touchUntil = 0;
   private wander = new THREE.Vector3();
   private yaw = 0;
   private pitch = 0;
@@ -94,6 +99,27 @@ export class Brain {
     return this.state;
   }
 
+  on(fn: (e: BrainEvent) => void): void {
+    this.listeners.add(fn);
+  }
+
+  private emit(e: BrainEvent): void {
+    this.listeners.forEach((fn) => fn(e));
+  }
+
+  /** A quick look at something (a tapped button, a new chat line), then back to whatever it was watching. */
+  glance(world: THREE.Vector3, seconds = 1.2): void {
+    this.glanceAt = world.clone();
+    this.glanceUntil = this.time + seconds;
+  }
+
+  /** A finger on the screen: watched while it moves and for a moment after it lifts. */
+  touch(world: THREE.Vector3): void {
+    this.gazeTarget.copy(world);
+    this.touchUntil = this.time + 1.6;
+    this.input();
+  }
+
   setBaseMood(m: Mood): void {
     this.baseMood = m;
   }
@@ -109,6 +135,7 @@ export class Brain {
     this.idleFor = 0;
     if (this.asleep) {
       this.asleep = false;
+      this.emit('wake');
       this.react('surprised', 0.9, false);
       this.sound.chirp('surprised');
       this.hop(0.25);
@@ -216,6 +243,12 @@ export class Brain {
     this.hop(0.25);
   }
 
+  /** Flicks the antenna so it boings on its spring. */
+  kickAntenna(strength = 8): void {
+    this.antenna.vz += strength;
+    this.antenna.vx -= strength * 0.3;
+  }
+
   shiver(): void {
     if (this.reduced) return;
     gsap.fromTo(this.robot.emote.position, { x: -0.04 }, { x: 0.04, duration: 0.05, repeat: 7, yoyo: true, ease: 'none', onComplete: () => void (this.robot.emote.position.x = 0) });
@@ -230,8 +263,10 @@ export class Brain {
     this.pokes = this.pokes.filter((t) => now - t < 3.5);
     this.pokes.push(now);
     vibrate(12);
+    this.emit('poke');
     if (this.pokes.length >= 5) {
       this.pokes = [];
+      this.emit('grumpy');
       this.react('grumpy', 2.2);
       gsap.timeline().to(this.pose, { headTurn: 0.9, duration: 0.3 }).to(this.pose, { headTurn: 0, duration: 0.5 }, '+=1.4');
       this.shiver();
@@ -265,6 +300,7 @@ export class Brain {
   grab(local: THREE.Vector3): void {
     this.input();
     this.onPlay?.();
+    this.emit('pickup');
     this.state = 'held';
     this.grabOffset.copy(local).sub(this.robot.phys.position);
     this.grabOffset.y = Math.min(this.grabOffset.y, 2.0);
@@ -290,7 +326,10 @@ export class Brain {
     this.vel.copy(this.heldVel).clampLength(0, 14);
     const fast = this.vel.length() > 5;
     this.react(fast ? 'starry' : 'surprised', fast ? 1.4 : 0.8, false);
-    if (fast) this.sound.whee();
+    if (fast) {
+      this.sound.whee();
+      this.emit('toss');
+    }
   }
 
   // Frame update ----------------------------------------------------------------------------------------
@@ -305,6 +344,7 @@ export class Brain {
     else this.idleFor = 0;
     if (this.idleFor > ASLEEP_AFTER && !this.asleep) {
       this.asleep = true;
+      this.emit('sleep');
       this.snoreAt = this.time + 1.5;
     }
     if (this.asleep && this.time > this.snoreAt) {
@@ -316,6 +356,7 @@ export class Brain {
     this.spinAccum = Math.max(0, this.spinAccum - dt * 9);
     if (this.spinAccum > 26 && !this.busy) {
       this.spinAccum = 0;
+      this.emit('dizzy');
       this.react('dizzy', 2.6);
       if (!this.reduced) gsap.to(this.robot.emote.rotation, { z: 0.12, duration: 0.25, yoyo: true, repeat: 7, ease: 'sine.inOut', onComplete: () => void (this.robot.emote.rotation.z = 0) });
       vibrate([20, 40, 20]);
@@ -339,7 +380,9 @@ export class Brain {
     let target: THREE.Vector3;
     if (this.gazeOverride) {
       target = this.gazeOverride;
-    } else if (this.pointerSeen) {
+    } else if (this.glanceAt && this.time < this.glanceUntil) {
+      target = this.glanceAt;
+    } else if (this.pointerSeen || this.time < this.touchUntil) {
       target = this.gazeTarget;
     } else if (this.tiltInput) {
       head.parent!.getWorldPosition(this.tmp2);

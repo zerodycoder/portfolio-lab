@@ -5,29 +5,21 @@ import type { Sound } from '../lib/sound';
 import type { Brain } from '../three/brain';
 import type { Director } from '../three/director';
 import type { Robot } from '../three/robot';
+import type { Speech } from './speech';
 
 /**
  * Hero: "Hi, I'm [robot] Nibbo." with the robot standing in the gap of its own sentence. A shared link
- * (?bot=) swaps in the adopted robot's name. The intro is the wake-up: a yawn, a stretch, a look round, a wave.
+ * (?bot=) swaps in the adopted robot's name. The intro is the wake-up: a yawn, a stretch, a look round, a wave
+ * and a hello in its speech bubble.
  */
-export function initHero(o: { director: Director; brain: Brain; robot: Robot; sound: Sound; reduced: boolean }): { intro(): void } {
-  const { director, brain, robot, sound, reduced } = o;
+export function initHero(o: { director: Director; brain: Brain; robot: Robot; sound: Sound; speech: Speech; reduced: boolean }): { intro(): void } {
+  const { director, brain, robot, sound, speech, reduced } = o;
   director.add({ id: 'hero', el: $('[data-slot="hero"]'), mood: 'happy', draggable: true });
 
   const name = $('[data-hero-name]');
   bot.subscribe((b, changed) => {
     if (changed === null || changed === 'name') name.textContent = `${b.name.trim() || 'Nibbo'}.`;
   });
-
-  // The "drag me" hint bows out once the visitor has played with the robot.
-  const hint = $('[data-hint]');
-  let played = false;
-  brain.onPlay = () => {
-    if (played) return;
-    played = true;
-    gsap.to(hint, { autoAlpha: 0, scale: 0.8, duration: 0.35, ease: 'back.in(2)', overwrite: true });
-  };
-  gsap.set(hint, { autoAlpha: 0 });
 
   return {
     intro() {
@@ -50,9 +42,9 @@ export function initHero(o: { director: Director; brain: Brain; robot: Robot; so
         brain.react('joy', 1.4, false);
         sound.chirp('hello');
         brain.wave();
+        if (director.current?.id === 'hero') speech.say(bot.shared ? `Hi! I’m ${bot.get().name}.` : 'Oh! Hi there.', 2.6);
       }, 2.75);
-      tl.add(() => void (played || gsap.to(hint, { autoAlpha: 1, duration: 0.5 })), 3.4);
-      tl.from($$('.hero__foot > *, .hero__eyebrow, .scroll-cue'), { autoAlpha: 0, y: 16, duration: 0.7, stagger: 0.08, ease: 'power3.out' }, 0.4);
+      tl.from($$('.hero__foot > *, .hero__eyebrow, .scroll-cue, .stamp'), { autoAlpha: 0, y: 16, duration: 0.7, stagger: 0.08, ease: 'power3.out' }, 0.4);
     },
   };
 }

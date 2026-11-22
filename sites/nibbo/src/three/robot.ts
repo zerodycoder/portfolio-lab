@@ -32,7 +32,13 @@ export type Part =
   | 'speaker'
   | 'chassis'
   | 'wheelL'
-  | 'wheelR';
+  | 'wheelR'
+  | 'servoL'
+  | 'servoR'
+  | 'neckServo'
+  | 'motorL'
+  | 'motorR'
+  | 'touch';
 
 /** Where each part flies to in the exploded view (offset in its parent's space) and when it starts moving (0..1). */
 const EXPLODE: Record<Part, { to: [number, number, number]; delay: number; spin?: [number, number, number] }> = {
@@ -40,8 +46,8 @@ const EXPLODE: Record<Part, { to: [number, number, number]; delay: number; spin?
   antenna: { to: [0, 0.55, 0], delay: 0.3 },
   earL: { to: [-0.6, 0, 0], delay: 0.35 },
   earR: { to: [0.6, 0, 0], delay: 0.35 },
-  visor: { to: [0, 0.66, 0.72], delay: 0.25 },
-  panel: { to: [0, 0, 0.5], delay: 0.3 },
+  visor: { to: [0, 0.78, 0.22], delay: 0.25 },
+  panel: { to: [0, 0, 0.46], delay: 0.2 },
   brain: { to: [-0.95, 0.5, 0.1], delay: 0.45, spin: [Math.PI / 2.4, 0, 0] },
   neck: { to: [0, 0.48, 0], delay: 0.2 },
   belly: { to: [0, 0, 0.55], delay: 0.2 },
@@ -53,7 +59,109 @@ const EXPLODE: Record<Part, { to: [number, number, number]; delay: number; spin?
   chassis: { to: [0, -0.4, 0], delay: 0.05 },
   wheelL: { to: [-0.45, -0.4, 0], delay: 0.1 },
   wheelR: { to: [0.45, -0.4, 0], delay: 0.1 },
+  servoL: { to: [-0.42, 0.12, 0.3], delay: 0.3 },
+  servoR: { to: [0.42, 0.12, 0.3], delay: 0.3 },
+  neckServo: { to: [0, 0.6, 0.42], delay: 0.35 },
+  motorL: { to: [-0.08, -0.06, 0.58], delay: 0.3 },
+  motorR: { to: [0.08, -0.06, 0.58], delay: 0.3 },
+  touch: { to: [0, 0.2, 0], delay: 0.4 },
 };
+
+export type Demo = 'pcb' | 'cells' | 'cliff' | 'touch' | 'speaker';
+
+/** A gear outline with a hub hole, for extruding. */
+function gearShape(teeth: number, r: number, depth: number): THREE.Shape {
+  const s = new THREE.Shape();
+  const n = teeth * 2;
+  for (let i = 0; i < n; i++) {
+    const rr = i % 2 === 0 ? r : r - depth;
+    const a0 = (i / n) * Math.PI * 2;
+    const a1 = ((i + 1) / n) * Math.PI * 2;
+    if (i === 0) s.moveTo(Math.cos(a0) * rr, Math.sin(a0) * rr);
+    else s.lineTo(Math.cos(a0) * rr, Math.sin(a0) * rr);
+    s.lineTo(Math.cos(a1) * rr, Math.sin(a1) * rr);
+  }
+  s.closePath();
+  const hole = new THREE.Path();
+  hole.absarc(0, 0, r * 0.28, 0, Math.PI * 2, true);
+  s.holes.push(hole);
+  return s;
+}
+
+/** Circuit board top: traces and pads, drawn once. */
+function pcbTexture(): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 256;
+  c.height = 176;
+  const g = c.getContext('2d')!;
+  g.fillStyle = '#1f8a5b';
+  g.fillRect(0, 0, 256, 176);
+  g.strokeStyle = '#d9b45c';
+  g.lineWidth = 2;
+  g.lineCap = 'round';
+  for (let i = 0; i < 26; i++) {
+    let x = 10 + ((i * 37) % 236);
+    let y = 8 + ((i * 53) % 160);
+    g.beginPath();
+    g.moveTo(x, y);
+    for (let k = 0; k < 3; k++) {
+      if ((i + k) % 2) x = Math.min(246, x + 20 + ((i * 7) % 30));
+      else y = Math.min(168, y + 14 + ((i * 5) % 24));
+      g.lineTo(x, y);
+    }
+    g.stroke();
+    g.fillStyle = '#e8c46a';
+    g.beginPath();
+    g.arc(x, y, 3, 0, Math.PI * 2);
+    g.fill();
+  }
+  g.fillStyle = 'rgba(255,255,255,0.85)';
+  g.font = '600 14px ui-monospace, monospace';
+  g.fillText('NB-1  rev 3', 12, 168);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+/** Perforated speaker grille. */
+function grilleTexture(): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const g = c.getContext('2d')!;
+  g.fillStyle = '#2c2939';
+  g.beginPath();
+  g.arc(64, 64, 62, 0, Math.PI * 2);
+  g.fill();
+  g.globalCompositeOperation = 'destination-out';
+  for (let y = 10; y < 128; y += 11) {
+    for (let x = 10; x < 128; x += 11) {
+      if (Math.hypot(x - 64, y - 64) < 52) {
+        g.beginPath();
+        g.arc(x, y, 3, 0, Math.PI * 2);
+        g.fill();
+      }
+    }
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+/** Soft round glow, tinted by the sprite colour. */
+function haloTexture(): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const g = c.getContext('2d')!;
+  const grad = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  grad.addColorStop(0, 'rgba(255,255,255,0.9)');
+  grad.addColorStop(0.35, 'rgba(255,255,255,0.45)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 128, 128);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
 
 const smooth = (t: number): number => t * t * (3 - 2 * t);
 
@@ -133,6 +241,16 @@ export class Robot {
   private propeller: THREE.Object3D | null = null;
   private sproutLeaves: THREE.Object3D[] = [];
   private xrayMat: THREE.MeshBasicMaterial;
+  private pcbLeds: THREE.MeshStandardMaterial[] = [];
+  private cells: THREE.MeshStandardMaterial[] = [];
+  private cliffMat = new THREE.MeshStandardMaterial({ color: '#ff4b4b', emissive: '#ff3030', emissiveIntensity: 0.6, toneMapped: false });
+  private touchMat = physical('#c9824a', { metalness: 0.85, roughness: 0.32, clearcoat: 0.3, emissive: '#ff9a4a', emissiveIntensity: 0 });
+  private cone: THREE.Object3D | null = null;
+  private spinners: THREE.Object3D[] = [];
+  private demos = new Map<Demo, { from: number; until: number }>();
+  private focusPart: THREE.Object3D | null = null;
+  private focusAnchor: THREE.Object3D | null = null;
+  private halo: THREE.Sprite;
   private xrayOn = false;
   private explodeAmount = 0;
   private time = 0;
@@ -153,7 +271,7 @@ export class Robot {
       cream: physical('#f6efe3', { roughness: 0.42, clearcoat: 0.6 }),
       charcoal: physical('#2c2939', { roughness: 0.46, clearcoat: 0.4 }),
       rubber: new THREE.MeshStandardMaterial({ color: '#25222e', roughness: 0.88 }),
-      visor: physical('#13111b', { roughness: 0.1, clearcoat: 1, clearcoatRoughness: 0.04 }),
+      visor: physical('#13111b', { roughness: 0.18, clearcoat: 0.8, clearcoatRoughness: 0.12, envMapIntensity: 0.5 }),
       led: new THREE.MeshStandardMaterial({ color: ledHex, emissive: ledHex, emissiveIntensity: 1.8, toneMapped: false }),
     };
     this.xrayMat = new THREE.MeshBasicMaterial({ color: '#ff6a2b', wireframe: true, transparent: true, opacity: 0.55 });
@@ -173,6 +291,13 @@ export class Robot {
     this.hitbox = new THREE.Mesh(new THREE.BoxGeometry(1.45, ROBOT_H, 1.1), new THREE.MeshBasicMaterial({ visible: false }));
     this.hitbox.position.y = ROBOT_H / 2;
     this.emote.add(this.hitbox);
+
+    this.halo = new THREE.Sprite(
+      new THREE.SpriteMaterial({ map: haloTexture(), color: shellHex, transparent: true, opacity: 0.6, depthWrite: false }),
+    );
+    this.halo.renderOrder = -2;
+    this.halo.visible = false;
+    this.model.add(this.halo);
 
     this.shadow = new THREE.Mesh(
       new THREE.PlaneGeometry(2.1, 1.5),
@@ -218,6 +343,24 @@ export class Robot {
     this.mesh(new RoundedBoxGeometry(1.0, 0.32, 0.74, 4, 0.14), charcoal, chassis);
     // Cliff-sensor strip on the front bumper.
     this.mesh(new RoundedBoxGeometry(0.42, 0.05, 0.04, 2, 0.02), led, chassis, 0, -0.04, 0.37);
+    // Infrared cliff sensors under the bumper.
+    for (const x of [-0.3, 0.3]) this.mesh(new THREE.SphereGeometry(0.024, 14, 10), this.cliffMat, chassis, x, -0.1, 0.36);
+
+    // Gear motors (yellow gearbox, silver can, white gear), hidden inside the chassis until it comes apart.
+    const yellow = physical('#f5c21b', { roughness: 0.5, clearcoat: 0.2 });
+    const silver = physical('#cfd3dc', { metalness: 1, roughness: 0.3, clearcoat: 0 });
+    const white = physical('#f4f1ea', { roughness: 0.5 });
+    const gearGeo = new THREE.ExtrudeGeometry(gearShape(12, 0.085, 0.022), { depth: 0.025, bevelEnabled: false });
+    for (const side of [-1, 1] as const) {
+      const motor = this.group(side < 0 ? 'motorL' : 'motorR', chassis, side * 0.26, 0, -0.02);
+      this.mesh(new RoundedBoxGeometry(0.3, 0.15, 0.16, 2, 0.025), yellow, motor);
+      const can = this.mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.14, 20), silver, motor, -side * 0.02, 0, -0.14);
+      can.rotation.x = Math.PI / 2;
+      const gear = this.mesh(gearGeo, white, motor, side * 0.04, 0, 0.08);
+      gear.userData.spin = side;
+      this.spinners.push(gear);
+      this.inner.push(motor);
+    }
 
     for (const side of [-1, 1] as const) {
       const wheel = this.group(side < 0 ? 'wheelL' : 'wheelR', this.model, side * 0.54, 0.25, 0.02);
@@ -275,13 +418,39 @@ export class Robot {
     this.mesh(new RoundedBoxGeometry(0.44, 0.24, 0.26, 3, 0.05), physical('#34cf9b', { clearcoat: 0.3 }), battery);
     this.mesh(new RoundedBoxGeometry(0.3, 0.245, 0.265, 2, 0.02), charcoal, battery, 0.02, 0, 0);
     this.mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.06, 16), cream, battery, 0.25, 0, 0).rotation.z = Math.PI / 2;
+    // Charge gauge: four cells on the front.
+    for (let i = 0; i < 4; i++) {
+      const m = new THREE.MeshStandardMaterial({ color: '#c8ffe4', emissive: '#5dffb0', emissiveIntensity: 1, toneMapped: false });
+      this.cells.push(m);
+      this.mesh(new RoundedBoxGeometry(0.045, 0.13, 0.012, 1, 0.005), m, battery, -0.16 + i * 0.06, 0, 0.135);
+    }
     this.anchor('battery', battery, -0.1, 0.13, 0.12);
 
     const speaker = this.group('speaker', body, 0, 0.5, -0.16);
     this.mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.06, 32), charcoal, speaker);
-    this.mesh(new THREE.ConeGeometry(0.12, 0.07, 32, 1, true), physical('#4a4660', { side: THREE.DoubleSide }), speaker, 0, 0.06, 0).rotation.x = Math.PI;
+    this.cone = this.mesh(new THREE.ConeGeometry(0.12, 0.07, 32, 1, true), physical('#4a4660', { side: THREE.DoubleSide }), speaker, 0, 0.06, 0);
+    this.cone.rotation.x = Math.PI;
+    const grille = this.mesh(new THREE.CircleGeometry(0.13, 40), new THREE.MeshStandardMaterial({ map: grilleTexture(), transparent: true, roughness: 0.6 }), speaker, 0, 0.1, 0);
+    grille.rotation.x = -Math.PI / 2;
     this.mesh(new THREE.TorusGeometry(0.135, 0.012, 8, 40), physical('#d8dbe3', { metalness: 1, roughness: 0.25 }), speaker, 0, 0.035, 0).rotation.x = Math.PI / 2;
     this.anchor('speaker', speaker, 0, 0.08, 0);
+
+    // Servos: one in each shoulder (horn facing out) and a pan/tilt pair in the neck.
+    for (const side of [-1, 1] as const) {
+      const sv = this.group(side < 0 ? 'servoL' : 'servoR', body, side * 0.3, 0.56, 0);
+      this.servo(sv);
+      sv.rotation.z = -side * (Math.PI / 2);
+      if (side > 0) this.anchor('servos', sv, 0, 0.13, 0.04);
+      this.inner.push(sv);
+    }
+    const ns = this.group('neckServo', body, 0, 0.72, 0);
+    this.servo(ns);
+    const tilt = new THREE.Group();
+    tilt.position.set(0, 0, -0.13);
+    tilt.rotation.y = Math.PI / 2;
+    ns.add(tilt);
+    this.servo(tilt);
+    this.inner.push(ns);
 
     const neck = this.group('neck', body, 0, 0.8, 0);
     this.mesh(new THREE.CylinderGeometry(0.13, 0.16, 0.12, 28), charcoal, neck);
@@ -303,6 +472,9 @@ export class Robot {
     const backing = this.mesh(new RoundedBoxGeometry(0.88, 0.46, 0.03, 2, 0.04), physical('#1b3a2e', { clearcoat: 0.2 }), panel, 0, 0, -0.02);
     backing.visible = false;
     this.inner.push(backing);
+    // A matte black screen right behind the LEDs: whatever the glass reflects, the face always reads.
+    const screen = this.mesh(new THREE.PlaneGeometry(0.86, 0.44), new THREE.MeshBasicMaterial({ color: '#0b0a12' }), panel, 0, 0, -0.003);
+    screen.renderOrder = 1;
     const ledPlane = this.mesh(
       new THREE.PlaneGeometry(0.84, 0.42),
       new THREE.MeshBasicMaterial({
@@ -343,13 +515,27 @@ export class Robot {
     this.anchor('antenna', antenna, 0.05, 0.36, 0);
 
     const brain = this.group('brain', head, 0, 0.42, -0.06);
-    this.mesh(new RoundedBoxGeometry(0.62, 0.035, 0.42, 2, 0.012), physical('#1f8a5b', { clearcoat: 0.5, roughness: 0.5 }), brain);
+    this.mesh(new RoundedBoxGeometry(0.62, 0.035, 0.42, 2, 0.012), physical('#ffffff', { map: pcbTexture(), clearcoat: 0.5, roughness: 0.5 }), brain);
     this.mesh(new RoundedBoxGeometry(0.18, 0.04, 0.18, 2, 0.01), charcoal, brain, -0.06, 0.03, 0);
     this.mesh(new RoundedBoxGeometry(0.1, 0.03, 0.07, 2, 0.008), charcoal, brain, 0.17, 0.025, 0.1);
     this.mesh(new RoundedBoxGeometry(0.1, 0.03, 0.07, 2, 0.008), charcoal, brain, 0.17, 0.025, -0.08);
     const gold = physical('#d9b45c', { metalness: 1, roughness: 0.3, clearcoat: 0 });
     for (let i = 0; i < 6; i++) this.mesh(new THREE.BoxGeometry(0.015, 0.012, 0.04), gold, brain, -0.15 + i * 0.035, 0.022, 0.12);
-    this.anchor('brain', brain, 0, 0.04, 0.1);
+    this.anchor('brain', brain, -0.06, 0.05, 0);
+    // The IMU chip gets a pin-1 dot; three status LEDs run a chase while the brain "thinks".
+    this.mesh(new THREE.SphereGeometry(0.012, 8, 6), cream, brain, 0.14, 0.045, 0.08);
+    this.anchor('imu', brain, 0.17, 0.045, 0.1);
+    for (let i = 0; i < 3; i++) {
+      const m = new THREE.MeshStandardMaterial({ color: '#d6ffe2', emissive: '#4dff88', emissiveIntensity: 0.3, toneMapped: false });
+      this.pcbLeds.push(m);
+      this.mesh(new THREE.SphereGeometry(0.016, 10, 8), m, brain, -0.22 + i * 0.05, 0.03, -0.15);
+    }
+
+    // Capacitive touch pad just under the top of the shell.
+    const touch = this.group('touch', head, 0, 0.872, 0.03);
+    this.mesh(new RoundedBoxGeometry(0.56, 0.014, 0.42, 2, 0.006), this.touchMat, touch);
+    this.anchor('touch', touch, 0.12, 0.02, 0.1);
+    this.inner.push(touch);
     this.inner.push(brain);
     brain.visible = false;
     this.inner.forEach((o) => (o.visible = false));
@@ -416,8 +602,35 @@ export class Robot {
     }
   }
 
+  /** A small hobby servo: blue case, mounting tabs, white cross horn on the output shaft (horn up, +y). */
+  private servo(parent: THREE.Object3D): void {
+    const blue = physical('#3b6cf0', { roughness: 0.45, clearcoat: 0.4 });
+    const white = physical('#f4f1ea', { roughness: 0.5 });
+    this.mesh(new RoundedBoxGeometry(0.2, 0.15, 0.11, 2, 0.02), blue, parent);
+    this.mesh(new RoundedBoxGeometry(0.28, 0.02, 0.11, 1, 0.008), blue, parent, 0, 0.035, 0);
+    this.mesh(new THREE.CylinderGeometry(0.026, 0.026, 0.05, 14), white, parent, 0.05, 0.095, 0);
+    for (const r of [0, Math.PI / 2]) {
+      const arm = this.mesh(new RoundedBoxGeometry(0.17, 0.014, 0.03, 1, 0.006), white, parent, 0.05, 0.122, 0);
+      arm.rotation.y = r;
+    }
+  }
+
+  /** Runs a part's own little show for a while (status LEDs, charge cells, cliff sensors…). */
+  demo(kind: Demo, seconds = 1.8): void {
+    this.demos.set(kind, { from: this.time, until: this.time + seconds });
+  }
+
+  /** Pops one part forward with a soft glow behind it; `anchor` is a key of `anchors` (null clears). */
+  focus(anchor: string | null): void {
+    const a = anchor ? this.anchors[anchor] : null;
+    this.focusAnchor = a ?? null;
+    this.focusPart = a?.parent ?? null;
+    this.halo.visible = !!a;
+  }
+
   setShell(hex: string): void {
     this.mats.shell.color.set(hex);
+    (this.halo.material as THREE.SpriteMaterial).color.set(hex);
   }
 
   setLed(hex: string): void {
@@ -494,5 +707,46 @@ export class Robot {
     this.sproutLeaves.forEach((l, i) => (l.rotation.z = Math.sin(this.time * 2.2 + i) * 0.12));
     // The heart dial and antenna bulb breathe gently.
     this.mats.led.emissiveIntensity = 1.5 + Math.sin(this.time * 2.4) * 0.35;
+    this.updateDemos(dt);
+  }
+
+  private updateDemos(dt: number): void {
+    const t = this.time;
+    const live = (k: Demo): { p: number } | null => {
+      const d = this.demos.get(k);
+      if (!d) return null;
+      if (t > d.until) {
+        this.demos.delete(k);
+        return null;
+      }
+      return { p: (t - d.from) / (d.until - d.from) };
+    };
+    const pcb = live('pcb');
+    this.pcbLeds.forEach((m, i) => (m.emissiveIntensity = pcb ? (Math.floor(t * 9) % 3 === i ? 3 : 0.15) : 0.3));
+    const cells = live('cells');
+    this.cells.forEach((m, i) => (m.emissiveIntensity = !cells || Math.floor(cells.p * 6) > i ? 1.3 : 0.05));
+    const cliff = live('cliff');
+    this.cliffMat.emissiveIntensity = cliff ? (Math.floor(t * 8) % 2 ? 2.4 : 0.2) : 0.6;
+    const touch = live('touch');
+    this.touchMat.emissiveIntensity = touch ? 0.9 * Math.sin(touch.p * Math.PI) : 0;
+    const speaker = live('speaker');
+    if (this.cone) this.cone.scale.y = speaker ? 1 + Math.sin(t * 46) * 0.35 * (1 - speaker.p) : 1;
+    // The exploded gear motors turn slowly, and fast while the wheels are being shown off.
+    if (this.explodeAmount > 0.02) this.spinners.forEach((g) => (g.rotation.z += dt * (cliff ? 9 : 1.2) * (g.userData.spin as number)));
+
+    // The focused part swells a little and glows from behind.
+    for (const key of Object.keys(EXPLODE) as Part[]) {
+      const o = this.parts[key];
+      const target = o === this.focusPart ? 1.14 : 1;
+      if (o.scale.x !== target) o.scale.setScalar(Math.abs(target - o.scale.x) < 0.002 ? target : o.scale.x + (target - o.scale.x) * Math.min(1, dt * 10));
+    }
+    if (this.focusAnchor) {
+      // Just behind the part (the camera looks down -z), so the part itself stays in front of its glow.
+      this.focusAnchor.getWorldPosition(this.halo.position);
+      this.halo.position.z -= 0.7 * this.root.scale.x;
+      this.model.worldToLocal(this.halo.position);
+      const s = 0.9 + Math.sin(t * 3) * 0.08;
+      this.halo.scale.set(s, s, 1);
+    }
   }
 }

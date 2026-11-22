@@ -701,20 +701,6 @@ p {
   transform: translateX(-50%);
 }
 
-.hero__hint {
-  position: absolute;
-  left: calc(50% + min(13vw, 190px));
-  top: 21vh;
-  padding: 8px 14px;
-  border-radius: 16px 16px 16px 4px;
-  background: var(--card);
-  box-shadow:
-    inset 0 0 0 2px var(--ink),
-    0 3px 0 var(--ink);
-  color: var(--ink);
-  animation: float 3.2s ease-in-out infinite;
-}
-
 @keyframes float {
   50% {
     transform: translateY(-6px);
@@ -787,7 +773,7 @@ p {
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
-  padding: 10vh var(--gutter) 30vh;
+  padding: 8vh var(--gutter) 24vh;
 }
 
 .chat__stick {
@@ -813,10 +799,10 @@ p {
   grid-row: 1;
   list-style: none;
   margin: 0;
-  padding: 36vh 0 10vh;
+  padding: 30vh 0 8vh;
   display: flex;
   flex-direction: column;
-  gap: 15vh;
+  gap: 10vh;
 }
 
 .bubble {
@@ -1593,7 +1579,7 @@ p {
 .make__slot {
   position: absolute;
   left: 50%;
-  bottom: 9%;
+  bottom: 13%;
   width: 60%;
   height: 74%;
   transform: translateX(-50%);
@@ -2021,6 +2007,12 @@ html.over-robot body {
   cursor: grab;
 }
 
+html.is-pressing body {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
 html.is-dragging,
 html.is-dragging body {
   cursor: grabbing;
@@ -2139,14 +2131,6 @@ html.is-dragging body {
     height: 41svh;
   }
 
-  .hero__hint {
-    left: 4vw;
-    top: calc(var(--nav-h) + 16svh);
-    font-size: 10px;
-    padding: 7px 11px;
-    border-radius: 14px 14px 4px 14px;
-  }
-
   .hero__foot {
     right: var(--gutter);
     bottom: max(20px, 3svh);
@@ -2226,8 +2210,8 @@ html.is-dragging body {
 
   .inside__slot {
     width: 60vw;
-    height: min(44svh, calc(100svh - 400px));
-    bottom: calc(max(16px, 2svh) + 166px);
+    height: min(40svh, calc(100svh - 450px));
+    bottom: calc(max(16px, 2svh) + 206px);
   }
 
   .part-card {
@@ -2240,23 +2224,34 @@ html.is-dragging body {
   }
 
   .part-card h3 {
-    font-size: 22px;
+    font-size: 20px;
+    margin-top: 2px;
   }
 
-  .part-card p:last-child {
-    font-size: 14px;
+  .part-card p:last-child,
+  .part-card [data-part-text] {
+    font-size: 13.5px;
+    line-height: 1.4;
     margin-top: 4px;
   }
 
-  .xray {
-    right: var(--gutter);
-    bottom: calc(max(16px, 2svh) + 122px);
-    flex-direction: row-reverse;
-    align-items: center;
-    gap: 10px;
+  .part-card__chips li {
+    font-size: 9px;
+    padding: 3px 8px;
   }
 
-  .switch[aria-checked='false'] + .xray__stats {
+  .part-card__nav button {
+    width: 28px;
+    height: 28px;
+  }
+
+  .xray {
+    top: calc(var(--nav-h) + 4px);
+    bottom: auto;
+    right: var(--gutter);
+  }
+
+  .xray__stats {
     display: none;
   }
 
@@ -2413,7 +2408,8 @@ html.is-dragging body {
 
   .make__slot {
     width: 70%;
-    height: 80%;
+    height: 76%;
+    bottom: 16%;
   }
 
   .options {
@@ -2524,6 +2520,773 @@ html.is-dragging body {
 
   .footer__credit {
     font-size: 13px;
+  }
+}
+
+/* ---------- Tricks ---------- */
+
+.tricks-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 40px;
+  padding: 0 14px 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--paper);
+  font-weight: 650;
+  font-size: 14px;
+  box-shadow: 0 3px 0 #000;
+}
+
+.tricks-btn__star {
+  color: var(--butter);
+  font-size: 15px;
+  animation: twinkle 2.4s ease-in-out infinite;
+}
+
+.tricks-btn b {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--paper) 16%, transparent);
+}
+
+@keyframes twinkle {
+  50% {
+    transform: scale(1.25) rotate(18deg);
+  }
+}
+
+.tricks-panel {
+  position: fixed;
+  z-index: 30;
+  top: calc(var(--nav-h) + 6px);
+  right: var(--gutter);
+  width: min(380px, calc(100vw - 2 * var(--gutter)));
+  max-height: calc(100svh - var(--nav-h) - 24px);
+  overflow: auto;
+  padding: 18px 18px 14px;
+  border-radius: 26px;
+  background: var(--card);
+  box-shadow:
+    inset 0 0 0 2.5px var(--ink),
+    0 6px 0 var(--ink),
+    0 30px 60px -30px rgba(30, 27, 46, 0.5);
+  opacity: 0;
+  transform: translateY(-10px) scale(0.97);
+  transform-origin: top right;
+  pointer-events: none;
+  transition:
+    opacity 0.25s var(--ease),
+    transform 0.35s var(--spring);
+}
+
+.tricks-panel.is-open {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+.tricks-panel__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.tricks-panel__head .mono {
+  color: var(--muted);
+}
+
+.tricks-panel__sub {
+  margin-top: 4px;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.tricks-panel__close {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--paper-2);
+  display: grid;
+  place-items: center;
+}
+
+.tricks-panel__close svg {
+  width: 16px;
+  height: 16px;
+  stroke: var(--ink);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  fill: none;
+}
+
+.tricks {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.trick {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 9px 10px;
+  border-radius: 14px;
+  background: var(--paper);
+}
+
+.trick b {
+  display: block;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+}
+
+.trick small {
+  display: block;
+  font-size: 13px;
+  color: var(--ink-2);
+  line-height: 1.35;
+}
+
+.trick__check {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 9px;
+  box-shadow: inset 0 0 0 2px var(--line);
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+}
+
+.trick.is-done {
+  background: color-mix(in srgb, var(--mint) 22%, var(--card));
+}
+
+.trick.is-done .trick__check {
+  background: var(--ink);
+  color: var(--butter);
+  box-shadow: none;
+}
+
+.trick.is-done small {
+  color: var(--muted);
+}
+
+.trick-toast {
+  position: fixed;
+  z-index: 40;
+  top: calc(var(--nav-h) + 8px);
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 18px 10px 12px;
+  border-radius: 18px;
+  background: var(--ink);
+  color: var(--paper);
+  box-shadow: 0 16px 40px -16px rgba(0, 0, 0, 0.5);
+  transform: translate(-50%, -16px) scale(0.9);
+  opacity: 0;
+  pointer-events: none;
+  white-space: nowrap;
+  transition:
+    opacity 0.3s,
+    transform 0.5s var(--spring);
+}
+
+.trick-toast.is-shown {
+  opacity: 1;
+  transform: translate(-50%, 0) scale(1);
+}
+
+.trick-toast__star {
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  background: var(--butter);
+  color: var(--ink);
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+}
+
+.trick-toast b {
+  display: block;
+  font-size: 15px;
+}
+
+.trick-toast small {
+  display: block;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+/* ---------- Speech bubble (rides next to Nibbo's head) ---------- */
+
+.speech {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 15;
+  max-width: min(260px, 62vw);
+  padding: 10px 14px 11px;
+  border-radius: 18px 18px 18px 5px;
+  background: var(--card);
+  box-shadow:
+    inset 0 0 0 2px var(--ink),
+    0 4px 0 var(--ink);
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s;
+  will-change: transform;
+}
+
+.speech.is-left {
+  border-radius: 18px 18px 5px 18px;
+}
+
+.speech.is-shown {
+  opacity: 1;
+}
+
+.speech.is-pop span {
+  display: inline-block;
+  animation: speech-pop 0.45s var(--spring);
+}
+
+@keyframes speech-pop {
+  from {
+    transform: scale(0.7);
+    opacity: 0;
+  }
+}
+
+/* ---------- Hero stamp ---------- */
+
+.stamp {
+  position: absolute;
+  right: calc(var(--gutter) + 10px);
+  top: 24vh;
+  width: 120px;
+  height: 120px;
+  pointer-events: none;
+}
+
+.stamp svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  animation: spin 16s linear infinite;
+}
+
+.stamp text {
+  font-family: var(--mono);
+  font-size: 9.6px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  fill: var(--ink);
+}
+
+.stamp__core {
+  position: absolute;
+  inset: 30px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: inset 0 0 0 2px var(--ink);
+  display: grid;
+  place-content: center;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+.stamp__core b {
+  font-family: var(--font);
+  font-size: 26px;
+  letter-spacing: -0.04em;
+  line-height: 0.9;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---------- Inside: part list, richer card, blueprint mode ---------- */
+
+.parts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  position: absolute;
+  right: var(--gutter);
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  opacity: 0;
+  transition: opacity 0.4s;
+}
+
+.inside.is-touring .parts {
+  opacity: 1;
+}
+
+.parts button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 12px 6px 8px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-2);
+  text-align: left;
+  transition:
+    background-color 0.25s,
+    color 0.25s,
+    transform 0.3s var(--spring);
+}
+
+.parts button .mono {
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.parts button:hover {
+  color: var(--ink);
+}
+
+.parts button.is-active {
+  background: var(--ink);
+  color: var(--paper);
+  transform: translateX(-6px);
+}
+
+.parts button.is-active .mono {
+  color: var(--butter);
+}
+
+.part-card__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.part-card__nav {
+  display: flex;
+  gap: 6px;
+}
+
+.part-card__nav button {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--paper-2);
+  display: grid;
+  place-items: center;
+}
+
+.part-card__nav svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.part-card__chips {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.part-card__chips li {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 20%, var(--card));
+  box-shadow: inset 0 0 0 1.5px var(--line);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Fixed behind the canvas (the pinned section sits above it), shown while the X-ray tour is on screen. */
+.blueprint-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-color: #1c3a8f;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.07) 1px, transparent 1px),
+    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size:
+    120px 120px,
+    120px 120px,
+    24px 24px,
+    24px 24px;
+  opacity: 0;
+  transition: opacity 0.6s var(--ease);
+}
+
+.blueprint-bg.is-on {
+  opacity: 1;
+}
+
+.inside.is-blueprint .inside__head,
+.inside.is-blueprint .xray__stats,
+.inside.is-blueprint .parts button {
+  color: #e6f0ff;
+}
+
+.inside.is-blueprint .inside__head .lede,
+.inside.is-blueprint .parts button .mono,
+.inside.is-blueprint .eyebrow {
+  color: #a9c4f5;
+}
+
+.inside.is-blueprint .parts button.is-active {
+  background: #e6f0ff;
+  color: #1c3a8f;
+}
+
+.inside.is-blueprint .inside__lines line,
+.inside.is-blueprint .inside__lines circle {
+  stroke: #e6f0ff;
+}
+
+.inside.is-blueprint .tag {
+  background: #1c3a8f;
+  color: #e6f0ff;
+  box-shadow: inset 0 0 0 1.5px #e6f0ff;
+}
+
+.inside.is-blueprint .tag.is-active {
+  background: #e6f0ff;
+  color: #1c3a8f;
+}
+
+.dims {
+  transition: opacity 0.3s;
+}
+
+.dims line {
+  stroke: #ffd166 !important;
+  stroke-width: 1.5 !important;
+  stroke-dasharray: none !important;
+}
+
+.dims text {
+  fill: #ffd166;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  text-anchor: middle;
+}
+
+.dims [data-d='ht'] {
+  text-anchor: start;
+}
+
+.titleblock {
+  position: absolute;
+  right: var(--gutter);
+  top: calc(var(--nav-h) + 26px);
+  padding: 8px 12px;
+  border: 1.5px solid #e6f0ff;
+  color: #e6f0ff;
+  font-size: 10px;
+  opacity: 0;
+  transition: opacity 0.5s;
+}
+
+.inside.is-blueprint .titleblock {
+  opacity: 1;
+}
+
+/* ---------- Make: price row with Surprise me ---------- */
+
+.make__price {
+  align-items: center;
+}
+
+.make__price > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* ---------- Adopt: what happens next ---------- */
+
+.next-steps {
+  list-style: none;
+  margin: 26px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  counter-reset: step;
+}
+
+.next-steps li {
+  position: relative;
+  padding: 14px 14px 16px;
+  border-radius: 18px;
+  background: var(--card);
+  box-shadow: inset 0 0 0 2px var(--line);
+  counter-increment: step;
+}
+
+.next-steps li::before {
+  content: counter(step);
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin-bottom: 10px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.next-steps b {
+  display: block;
+  font-size: 15px;
+}
+
+.next-steps span {
+  display: block;
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--ink-2);
+  line-height: 1.35;
+}
+
+/* ---------- Footer: lights out ---------- */
+
+.footer {
+  background: linear-gradient(to bottom, var(--paper) 0%, #2a2560 22%, #15123a 55%, #0d0b26 100%);
+  color: #ece9ff;
+}
+
+.footer__night {
+  color: rgba(236, 233, 255, 0.07);
+}
+
+.footer__sky {
+  position: absolute;
+  inset: 18% 0 0;
+  pointer-events: none;
+}
+
+.footer__sky i:not(.footer__moon) {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 6px #fff;
+  animation: star 3s ease-in-out infinite;
+}
+
+@keyframes star {
+  50% {
+    opacity: 0.2;
+    transform: scale(0.6);
+  }
+}
+
+.footer__moon {
+  position: absolute;
+  right: 12%;
+  top: 6%;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  box-shadow: inset -14px 8px 0 0 #fff3c4;
+  filter: drop-shadow(0 0 18px rgba(255, 243, 196, 0.5));
+  transform: rotate(-20deg);
+}
+
+.footer__credit {
+  color: #c9c4ea;
+}
+
+.footer__credit b {
+  color: #fff;
+}
+
+.footer .btn--ghost {
+  --bg: transparent;
+  --fg: #ece9ff;
+  box-shadow:
+    inset 0 0 0 2px #ece9ff,
+    0 4px 0 #ece9ff;
+}
+
+/* ---------- Chat: who is talking ---------- */
+
+.bubble__who {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.bubble__who canvas {
+  width: 34px;
+  height: 18px;
+  border-radius: 6px;
+  background: #13111b;
+}
+
+.bubble--you .bubble__who {
+  justify-content: flex-end;
+  color: color-mix(in srgb, var(--accent-ink) 65%, transparent);
+}
+
+/* ---------- Round 2 on phones ---------- */
+
+@media (max-width: 760px) {
+  .tricks-btn {
+    height: 38px;
+    padding: 0 10px;
+    gap: 5px;
+  }
+
+  .tricks-btn__label {
+    display: none;
+  }
+
+  .nav__right {
+    gap: 7px;
+  }
+
+  .tricks-panel {
+    top: auto;
+    bottom: 0;
+    right: 0;
+    left: 0;
+    width: auto;
+    max-height: 78svh;
+    border-radius: 26px 26px 0 0;
+    padding-bottom: max(18px, env(safe-area-inset-bottom));
+    transform: translateY(30px);
+    transform-origin: bottom center;
+  }
+
+  .trick-toast {
+    max-width: calc(100vw - 32px);
+  }
+
+  .speech {
+    font-size: 14px;
+    max-width: 58vw;
+  }
+
+  .stamp {
+    width: 84px;
+    height: 84px;
+    top: auto;
+    bottom: calc(34svh - 24px);
+    right: 6vw;
+  }
+
+  .stamp__core {
+    inset: 21px;
+    font-size: 7px;
+  }
+
+  .stamp__core b {
+    font-size: 18px;
+  }
+
+  .parts {
+    display: none;
+  }
+
+  .part-card__chips {
+    margin-top: 8px;
+  }
+
+  .titleblock {
+    top: auto;
+    bottom: calc(max(16px, 2svh) + 170px);
+    left: var(--gutter);
+    right: auto;
+    font-size: 8px;
+  }
+
+  .next-steps {
+    gap: 6px;
+  }
+
+  .next-steps li {
+    padding: 10px 10px 12px;
+  }
+
+  .next-steps b {
+    font-size: 13px;
+  }
+
+  .next-steps span {
+    font-size: 12px;
+  }
+
+  .footer__moon {
+    right: 8%;
+    width: 40px;
+    height: 40px;
   }
 }
 

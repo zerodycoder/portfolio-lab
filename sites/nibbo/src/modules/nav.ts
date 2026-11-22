@@ -33,7 +33,7 @@ export function initNav(sound: Sound): void {
     });
   });
 
-  const tactile = '.btn, .block, .mood, .swatch, .choice, .switch, .level-dot, .chip, .sound-toggle, .nav__links a';
+  const tactile = '.btn, .block, .mood, .swatch, .choice, .switch, .level-dot, .chip, .sound-toggle, .tricks-btn, .parts button, .part-card__nav button, .nav__links a';
   document.addEventListener('pointerover', (e) => {
     const el = (e.target as Element | null)?.closest(tactile);
     const from = (e.relatedTarget as Element | null)?.closest(tactile);

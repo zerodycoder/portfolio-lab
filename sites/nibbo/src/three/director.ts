@@ -44,6 +44,7 @@ export class Director {
   private a = newPose();
   private b = newPose();
   private target = newPose();
+  private dock = newPose();
   private placed = false;
   private prevPos = new THREE.Vector3();
   private velocity = new THREE.Vector3();
@@ -77,6 +78,16 @@ export class Director {
     stage.toWorld(rect.left + rect.width / 2, rect.bottom - canvasTop, out.pos);
     out.scale = (rect.height * stage.wpp) / ROBOT_H;
     this.euler.set(THREE.MathUtils.degToRad(slot.pitch ?? 0), THREE.MathUtils.degToRad(slot.yaw ?? 0), 0);
+    out.quat.setFromEuler(this.euler);
+  }
+
+  /** Phones: the spot on the right edge where Nibbo rides between sections, turned towards the content. */
+  private dockPose(out: Pose): void {
+    const { stage } = this;
+    const h = stage.height * 0.2;
+    stage.toWorld(stage.width - h * 0.3, stage.height * 0.64, out.pos);
+    out.scale = (h * stage.wpp) / ROBOT_H;
+    this.euler.set(0.05, THREE.MathUtils.degToRad(-32), 0.08);
     out.quat.setFromEuler(this.euler);
   }
 
@@ -117,11 +128,24 @@ export class Director {
     if (B !== A) {
       this.poseOf(B.s, B.r, this.b);
       const s = smoothstep(t);
-      this.target.pos.lerpVectors(this.a.pos, this.b.pos, s);
-      // Arc through the air a little when travelling between two sections.
-      this.target.pos.z += Math.sin(s * Math.PI) * 1.2;
-      this.target.quat.slerpQuaternions(this.a.quat, this.b.quat, s);
-      this.target.scale = THREE.MathUtils.lerp(this.a.scale, this.b.scale, s);
+      if (this.stage.width < 760) {
+        // Phones stack everything in one column, so a straight flight would cross the text. Instead Nibbo
+        // slips out to the right edge, small, rides along there, and hops into the next slot.
+        this.dockPose(this.dock);
+        const first = s < 0.5;
+        const k = smoothstep(first ? s * 2 : (s - 0.5) * 2);
+        const from = first ? this.a : this.dock;
+        const to = first ? this.dock : this.b;
+        this.target.pos.lerpVectors(from.pos, to.pos, k);
+        this.target.quat.slerpQuaternions(from.quat, to.quat, k);
+        this.target.scale = THREE.MathUtils.lerp(from.scale, to.scale, k);
+      } else {
+        this.target.pos.lerpVectors(this.a.pos, this.b.pos, s);
+        // Arc through the air a little when travelling between two sections.
+        this.target.pos.z += Math.sin(s * Math.PI) * 1.2;
+        this.target.quat.slerpQuaternions(this.a.quat, this.b.quat, s);
+        this.target.scale = THREE.MathUtils.lerp(this.a.scale, this.b.scale, s);
+      }
     } else {
       this.target.pos.copy(this.a.pos);
       this.target.quat.copy(this.a.quat);

@@ -53,10 +53,25 @@ generated in code.
 - **The director** (`src/three/director.ts`) walks the robot through the page. Every section has an empty HTML
   "slot" box; the robot stands on the box's bottom edge at the box's height. A slot owns the robot while the
   viewport centre is inside its section (minus a margin); between sections the robot flies from one slot to the next
-  on an arc, leaning into the motion. Slots can compute their own pose: the game board and the adoption box do.
-- **The robot** (`src/three/robot.ts`) is built from rounded boxes, tori, capsules and spheres, with four transform
-  layers (placement, physics, emotes, parts). It has an exploded view (each part flies out in its own time window),
-  an X-ray wireframe mode, accessories and live recolouring.
+  on an arc, leaning into the motion. On phones, where everything is one column, it instead slips out to the right
+  edge (small, peeking in) and hops into the next slot, so it never crosses the text. Slots can compute their own
+  pose: the game board and the adoption box do.
+- **The robot** (`src/three/robot.ts`) is built from rounded boxes, tori, capsules, spheres and extruded gears, with
+  four transform layers (placement, physics, emotes, parts). Inside the shell are real-looking internals that only
+  show when it comes apart: servos, gear motors, a printed circuit board with status LEDs, the motion sensor, a
+  copper touch pad, a battery with a charge gauge and a speaker with a grille. Parts can be focused (they swell and
+  glow) and run little demos. Also: an X-ray wireframe mode, accessories and live recolouring.
+- **Inside** (`src/modules/inside.ts`) is a pinned guided tour of ten parts. Scrolling takes Nibbo apart, then turns
+  each part to the viewer, demonstrates it (the speaker talks, the arm waves, the wheels spin and the cliff sensors
+  blink) and explains it on a card with spec chips; labels ride on the projected 3D anchors. X-ray turns the section
+  into a blueprint (fixed behind the canvas) with live dimension lines, in millimetres, around the current part.
+- **Discovering things** (`src/modules/tricks.ts`, `coach.ts`, `speech.ts`): a "Tricks" counter in the nav opens a
+  checklist of the 13 things Nibbo can do, worded for mouse or touch; each one is ticked off (and saved) when the
+  visitor does it. A speech bubble rides next to Nibbo's head, projected from 3D; after a few quiet seconds in a
+  section Nibbo suggests a trick that hasn't been found yet (one hint per visit), and it answers when one is found.
+- **Touch parity** (`src/modules/controls.ts`): on phones the eyes follow the finger, glance at whatever was tapped
+  and look the way the page scrolls; a touch on the robot in the hero picks it up, anywhere else a still long press
+  does (a swipe across it still scrolls); a hard shake makes it dizzy.
 - **The face** (`src/three/face.ts`) is a 40 × 20 LED matrix. Expressions are parametric eye shapes (lids, cheeks,
   hearts, spirals, stars) drawn into a supersampled mask; every LED takes its cell's brightness, so blinks and gaze
   animate smoothly but always read as dots. It also scrolls text (the name being typed). The same engine draws the
@@ -74,7 +89,11 @@ generated in code.
   round-trips the configured robot through `?bot=shell.led.accessory.name`, so the share link opens the site with
   that robot (gate, hero and price included).
 - **Sound** (`src/lib/sound.ts`): a babbling voice (gliding oscillators through vowel formants) that can "say" any
-  typed word, plus servos, wheels, bumps, sparks, a jingle, cardboard and tape. All soft.
+  typed word, plus servos, bumps, sparks, a jingle, cardboard, tape and wooden blocks. A move on the game board is a
+  soft whirr under a sung note that climbs a pentatonic scale, so a program plays as a little tune. All soft.
+- **Fuller pages**: floating wooden letter blocks in the hero (parallax against the pointer or tilt, and they jump
+  when clicked), a spinning "made entirely of code" stamp, a turntable and "Surprise me" in the configurator, a
+  "what happens next" timeline in adoption, and a footer where the lights go out and stars come up.
 
 ## RAKHSH
 

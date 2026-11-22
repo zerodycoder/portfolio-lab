@@ -2,12 +2,14 @@
 
 export default {
   sections:
-    'top,top:poke,top:toss,top:dizzy,hello@0.25,hello@0.7,inside@0.06,inside@0.3,inside@0.62,inside@0.62:xray,feelings,feelings:mood,play,play:solve,play:loop,make,make:custom,specs,adopt,adopt:name,adopt:pack,footer~2',
+    'top,top:poke,top:toss,top:dizzy,top:tricks,hello^0.5,hello@0.25,hello@0.7:longpress,inside^0.5,inside@0.06,inside@0.2,inside@0.45,inside@0.45:xray,inside@0.7,' +
+    'feelings^0.5,feelings~5,feelings:mood,play^0.5,play,play:solve,play:loop,make^0.5,make:custom,specs^0.5,specs,adopt^0.5,adopt,adopt:name,adopt:pack,footer^0.5,footer~2',
 
   // The intro (wake-up, stretch, wave) takes about 4 s after the gate.
   afterEnterMs: 4200,
 
-  overflowIgnore: '.hero__title, .footer__night, .tags',
+  // The spinning stamp's bounding box grows while it rotates; the body clips horizontally anyway.
+  overflowIgnore: '.hero__title, .footer__night, .tags, .stamp',
 
   // Robot state at each screenshot.
   probe: () => {
@@ -26,6 +28,48 @@ export default {
   },
 
   actions: {
+    async tricks({ page, shot }) {
+      await page.click('[data-tricks]');
+      await page.waitForTimeout(600);
+      await shot('tricks');
+      await page.click('[data-tricks-close]');
+      await page.waitForTimeout(300);
+      return true;
+    },
+
+    // Outside the hero a touch only picks Nibbo up after a still long press; the page must not scroll meanwhile.
+    async longpress({ page, name, shot }) {
+      const at = await page.evaluate(() => {
+        const n = window.__nibbo;
+        const s = n.stage.toScreen(n.robot.parts.belly.getWorldPosition(new n.robot.root.position.constructor()));
+        return { x: s.x, y: s.y, scroll: Math.round(scrollY) };
+      });
+      if (name === 'mobile') {
+        const cdp = await page.context().newCDPSession(page);
+        const touch = (type, p) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: p ? [{ x: p.x, y: p.y }] : [] });
+        await touch('touchStart', at);
+        await page.waitForTimeout(480);
+        for (let i = 1; i <= 8; i++) {
+          await touch('touchMove', { x: at.x + i * 4, y: at.y - i * 14 });
+          await page.waitForTimeout(16);
+        }
+        await page.waitForTimeout(200);
+        await shot('held');
+        await touch('touchEnd');
+      } else {
+        await page.mouse.move(at.x, at.y);
+        await page.mouse.down();
+        for (let i = 1; i <= 8; i++) await page.mouse.move(at.x + i * 4, at.y - i * 14, { steps: 2 });
+        await page.waitForTimeout(200);
+        await shot('held');
+        await page.mouse.up();
+      }
+      const after = await page.evaluate(() => Math.round(scrollY));
+      if (after !== at.scroll) console.warn(`longpress scrolled the page by ${after - at.scroll}px`);
+      await page.waitForTimeout(1500);
+      return true;
+    },
+
     // Pick Nibbo up by the body, swing it up and to the right, let go. Real touch events on phones (via CDP),
     // so the "touch on the robot picks it up instead of scrolling" path is exercised too.
     async toss({ page, name, shot }) {

@@ -63,9 +63,11 @@ for (const vp of viewports) {
     // "section~6" waits 6 extra seconds before the screenshot (e.g. to catch a later moment of an animation).
     const [spec, extraWait] = rawSpec.split('~');
     const [target, action] = spec.split(':');
-    const [id, frac] = target.split('@');
+    // "id^0.5" puts the section's top half a screen below the top: the moment between two sections.
+    const [idFrac, edge] = target.split('^');
+    const [id, frac] = idFrac.split('@');
     await page.evaluate(
-      ({ id, frac }) => {
+      ({ id, frac, edge }) => {
         const lenis = window.__lenis;
         const st = window.__st;
         const el = id === 'footer' ? document.querySelector('footer') : document.getElementById(id);
@@ -77,9 +79,10 @@ for (const vp of viewports) {
         else if (frac !== undefined) y = top + (el.offsetHeight - window.innerHeight) * Number(frac);
         else y = top;
         if (id === 'footer') y = document.documentElement.scrollHeight;
+        if (edge !== undefined) y = top - Number(edge) * window.innerHeight;
         lenis.scrollTo(y, { immediate: true, force: true });
       },
-      { id, frac },
+      { id, frac, edge },
     );
     await page.waitForTimeout(1400 + Number(extraWait ?? 0) * 1000);
 
@@ -97,7 +100,7 @@ for (const vp of viewports) {
     );
     if (videos.length) media[spec] = videos;
     if (scenario.probe) probes[spec] = await page.evaluate(scenario.probe);
-    const label = `${id}${frac ? `@${frac}` : ''}${action ? `-${action}` : ''}${extraWait ? `-t${extraWait}` : ''}`.replace(/[@.]/g, '_');
+    const label = `${id}${frac ? `@${frac}` : ''}${edge ? `^${edge}` : ''}${action ? `-${action}` : ''}${extraWait ? `-t${extraWait}` : ''}`.replace(/[@.^]/g, '_');
     await page.screenshot({ path: file(label) });
   }
 

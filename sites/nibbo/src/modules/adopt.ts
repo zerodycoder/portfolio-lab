@@ -5,14 +5,15 @@ import type { ShipBox } from '../three/box';
 import type { Brain } from '../three/brain';
 import type { Director } from '../three/director';
 import type { Robot } from '../three/robot';
+import type { Tricks } from './tricks';
 
 /**
  * Adoption. Typing a name scrolls it across Nibbo's LED face; a pause, and Nibbo says it out loud (in robot).
  * "Adopt" hops the robot into its box, folds the flaps, tapes it and prints a label with the name and options.
  * The result is a link that opens the site with exactly this robot (name included).
  */
-export function initAdopt(o: { director: Director; brain: Brain; robot: Robot; sound: Sound; box: ShipBox; toast: (msg: string) => void }): { update(): void } {
-  const { director, brain, robot, sound, box, toast } = o;
+export function initAdopt(o: { director: Director; brain: Brain; robot: Robot; sound: Sound; box: ShipBox; tricks: Tricks; toast: (msg: string) => void }): { update(): void } {
+  const { director, brain, robot, sound, box, tricks, toast } = o;
   const slotEl = $('[data-slot="adopt"]');
   director.add({
     id: 'adopt',
@@ -57,6 +58,7 @@ export function initAdopt(o: { director: Director; brain: Brain; robot: Robot; s
       sound.say(clean);
       brain.react('joy', 1.4, false);
       brain.hop(0.25);
+      tricks.find('name');
     }, 1400);
   });
   input.addEventListener('blur', () => {
@@ -94,6 +96,7 @@ export function initAdopt(o: { director: Director; brain: Brain; robot: Robot; s
         history.replaceState(null, '', bot.shareUrl());
         brain.busy = false;
         sound.jingle();
+        tricks.find('pack');
       });
   });
 

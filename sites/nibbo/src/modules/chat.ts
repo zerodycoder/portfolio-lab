@@ -2,17 +2,37 @@ import { $, $$ } from '../lib/dom';
 import type { Sound } from '../lib/sound';
 import type { Brain } from '../three/brain';
 import type { Director } from '../three/director';
-import type { Mood } from '../three/face';
+import { LedFace, type Mood } from '../three/face';
 
 /**
- * Nibbo introduces itself as a chat thread. Each bubble types in as it scrolls into view, and the robot pulls
- * the face that goes with the line (and chirps it). The visitor's replies make it tilt its head and listen.
+ * Nibbo introduces itself as a chat thread. Each of its lines carries a tiny live LED avatar with the face that
+ * goes with the line; bubbles type in as they scroll into view, and the 3D robot pulls the same face (and chirps
+ * it). The visitor's replies make it tilt its head and listen.
  */
-export function initChat(o: { director: Director; brain: Brain; sound: Sound }): void {
+export function initChat(o: { director: Director; brain: Brain; sound: Sound; ledHex: string }): { recolor(hex: string): void } {
   const { director, brain, sound } = o;
   director.add({ id: 'hello', el: $('[data-slot="hello"]'), mood: 'idle', draggable: true });
 
   const bubbles = $$('[data-chat] .bubble');
+  const avatars: { face: LedFace; mood: Mood }[] = [];
+  bubbles.forEach((b) => {
+    const you = b.classList.contains('bubble--you');
+    const who = document.createElement('span');
+    who.className = 'bubble__who';
+    who.setAttribute('aria-hidden', 'true');
+    if (you) {
+      who.textContent = 'You';
+    } else {
+      const mood = (b.dataset.mood ?? 'idle') as Mood;
+      const face = new LedFace(128, o.ledHex);
+      face.snap(mood);
+      face.update(0.016);
+      avatars.push({ face, mood });
+      who.append(face.canvas, document.createTextNode('Nibbo'));
+    }
+    b.prepend(who);
+  });
+
   const io = new IntersectionObserver(
     (entries) => {
       entries.forEach((e) => {
@@ -44,4 +64,14 @@ export function initChat(o: { director: Director; brain: Brain; sound: Sound }):
     { rootMargin: '0px 0px -30% 0px' },
   );
   bubbles.forEach((b) => io.observe(b));
+
+  return {
+    recolor(hex) {
+      avatars.forEach(({ face, mood }) => {
+        face.setColor(hex);
+        face.snap(mood);
+        face.update(0.016);
+      });
+    },
+  };
 }

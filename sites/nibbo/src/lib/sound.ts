@@ -93,6 +93,16 @@ export class Sound extends AudioEngine {
     this.noiseHit(l, t, 'highpass', 2600, 2000, 0.8, 0.04, 0.001, 0.025);
   }
 
+  /** A wooden toy block knocked: a hollow tok. */
+  tok(): void {
+    const l = this.live();
+    if (!l) return;
+    const t = l.ctx.currentTime;
+    this.tone(l, t, 'triangle', 820, 560, 0.09, 0.002, 0.09);
+    this.tone(l, t, 'sine', 1640, 1200, 0.03, 0.002, 0.05);
+    this.noiseHit(l, t, 'bandpass', 2600, 1800, 3, 0.05, 0.001, 0.03);
+  }
+
   /** A poke on the nose. */
   boop(): void {
     const l = this.live();
@@ -271,47 +281,52 @@ export class Sound extends AudioEngine {
     this.noiseHit(l, t, 'lowpass', 800, 200, 0.7, 0.04 * power, 0.002, 0.08);
   }
 
-  /** Motor hum for one move on the board. */
-  roll(seconds = 0.4): void {
+  /**
+   * One move on the board. Not a motor buzz: a soft rubber-wheel whirr under a little sung note, and each
+   * step climbs a pentatonic scale, so a whole program plays as a tiny tune.
+   */
+  roll(seconds = 0.4, step = 0): void {
     const l = this.live();
     if (!l) return;
     const t = l.ctx.currentTime;
     const o = l.ctx.createOscillator();
-    o.type = 'sawtooth';
-    o.frequency.setValueAtTime(70, t);
-    o.frequency.linearRampToValueAtTime(110, t + seconds * 0.5);
-    o.frequency.linearRampToValueAtTime(75, t + seconds);
+    o.type = 'sine';
+    o.frequency.setValueAtTime(210, t);
+    o.frequency.linearRampToValueAtTime(250, t + seconds * 0.5);
+    o.frequency.linearRampToValueAtTime(220, t + seconds);
     const lp = l.ctx.createBiquadFilter();
     lp.type = 'lowpass';
-    lp.frequency.value = 520;
+    lp.frequency.value = 700;
     const g = l.ctx.createGain();
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(0.05, t + 0.05);
-    g.gain.setValueAtTime(0.05, t + seconds - 0.06);
+    g.gain.exponentialRampToValueAtTime(0.03, t + 0.08);
+    g.gain.setValueAtTime(0.03, t + seconds - 0.1);
     g.gain.exponentialRampToValueAtTime(0.0001, t + seconds);
     o.connect(lp).connect(g).connect(l.out);
     o.start(t);
     o.stop(t + seconds + 0.02);
+    const scale = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21];
+    const f = 523.25 * Math.pow(2, scale[step % scale.length] / 12);
+    this.syllable(l, t + 0.02, f, f * 1.02, 0.12, VOWELS.o, 0.035, 'sine');
   }
 
-  /** Little servo whirr for turns and arm moves. */
+  /** Little servo whirr for turns and arm moves: soft and short. */
   servo(up = true): void {
     const l = this.live();
     if (!l) return;
     const t = l.ctx.currentTime;
     const o = l.ctx.createOscillator();
-    o.type = 'square';
-    o.frequency.setValueAtTime(up ? 420 : 560, t);
-    o.frequency.exponentialRampToValueAtTime(up ? 620 : 400, t + 0.18);
-    const bp = l.ctx.createBiquadFilter();
-    bp.type = 'bandpass';
-    bp.frequency.value = 1400;
-    bp.Q.value = 1.4;
+    o.type = 'triangle';
+    o.frequency.setValueAtTime(up ? 520 : 660, t);
+    o.frequency.exponentialRampToValueAtTime(up ? 700 : 500, t + 0.16);
+    const lp = l.ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 1500;
     const g = l.ctx.createGain();
-    this.envelope(g, t, 0.02, 0.025, 0.18);
-    o.connect(bp).connect(g).connect(l.out);
+    this.envelope(g, t, 0.02, 0.02, 0.16);
+    o.connect(lp).connect(g).connect(l.out);
     o.start(t);
-    o.stop(t + 0.25);
+    o.stop(t + 0.22);
   }
 
   /** Picking up a spark on the board. */

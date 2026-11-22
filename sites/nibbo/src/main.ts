@@ -11,6 +11,7 @@ import { $, reducedMotion } from './lib/dom';
 import { Sound } from './lib/sound';
 import { initAdopt } from './modules/adopt';
 import { initChat } from './modules/chat';
+import { initCoach } from './modules/coach';
 import { initControls } from './modules/controls';
 import { initFeelings } from './modules/feelings';
 import { runGate } from './modules/gate';
@@ -20,7 +21,10 @@ import { initMake } from './modules/make';
 import { initNav } from './modules/nav';
 import { initPlay } from './modules/play';
 import { initSpecs } from './modules/specs';
+import { Speech } from './modules/speech';
 import { renderStack } from './modules/stack';
+import { Tricks } from './modules/tricks';
+import { HeroBlocks } from './three/blocks';
 import { Board } from './three/board';
 import { ShipBox } from './three/box';
 import { Brain } from './three/brain';
@@ -43,6 +47,16 @@ function toaster(): (msg: string) => void {
     window.clearTimeout(timer);
     timer = window.setTimeout(() => el.classList.remove('is-shown'), 2400);
   };
+}
+
+/** The footer's night sky: a scatter of twinkling stars, each on its own beat. */
+function scatterStars(sky: HTMLElement): void {
+  for (let i = 0; i < 46; i++) {
+    const star = document.createElement('i');
+    const big = Math.random() < 0.18;
+    star.style.cssText = `left:${(1 + Math.random() * 96).toFixed(2)}%;top:${(Math.random() * 70).toFixed(2)}%;animation-delay:${(Math.random() * -3).toFixed(2)}s;animation-duration:${(2 + Math.random() * 3).toFixed(2)}s;${big ? 'width:4px;height:4px;' : ''}`;
+    sky.appendChild(star);
+  }
 }
 
 async function boot(): Promise<void> {
@@ -70,18 +84,28 @@ async function boot(): Promise<void> {
   const board = new Board(stage);
   const box = new ShipBox(stage);
 
+  const tricks = new Tricks(sound);
+  const speech = new Speech(stage, robot);
+  const blocks = new HeroBlocks(stage, () => {
+    sound.tok();
+    tricks.find('bop');
+  });
+  const heroEl = $('.hero');
+
   // Sections register their slots in page order.
-  const hero = initHero({ director, brain, robot, sound, reduced });
-  initChat({ director, brain, sound });
-  const inside = initInside({ director, robot, brain, stage, sound });
-  const feelings = initFeelings({ director, brain, sound, ledHex: LEDS[start.led].hex });
-  const play = initPlay({ director, board, brain, robot, sound, lenis });
-  const make = initMake({ director, brain, sound, reduced });
+  const hero = initHero({ director, brain, robot, sound, speech, reduced });
+  const chat = initChat({ director, brain, sound, ledHex: LEDS[start.led].hex });
+  const inside = initInside({ director, robot, brain, stage, sound, lenis, tricks });
+  const feelings = initFeelings({ director, brain, sound, tricks, ledHex: LEDS[start.led].hex });
+  const play = initPlay({ director, board, brain, robot, sound, lenis, tricks });
+  const make = initMake({ director, brain, robot, sound, tricks, reduced });
   initSpecs({ director, reduced });
-  const adopt = initAdopt({ director, brain, robot, sound, box, toast: toaster() });
+  const adopt = initAdopt({ director, brain, robot, sound, box, tricks, toast: toaster() });
   director.add({ id: 'footer', el: $('[data-slot="footer"]'), mood: 'asleep', draggable: true, yaw: 0 });
   initNav(sound);
   initControls(stage, robot, brain, director);
+  const coach = initCoach({ director, brain, tricks, speech, name: () => bot.get().name });
+  scatterStars($('[data-sky]'));
 
   // One store drives the robot, the page accent and every price on the page.
   const root = document.documentElement;
@@ -93,11 +117,14 @@ async function boot(): Promise<void> {
     root.style.setProperty('--accent', shell.hex);
     root.style.setProperty('--accent-ink', shell.ink);
     document.querySelectorAll('[data-price]').forEach((n) => (n.textContent = `$${bot.price()}`));
-    if (changed === 'led') feelings.recolor(LEDS[b.led].hex);
+    if (changed === 'led') {
+      feelings.recolor(LEDS[b.led].hex);
+      chat.recolor(LEDS[b.led].hex);
+    }
   });
 
   // Exposed for tools/shoot.mjs (state probes) and for poking around in the console.
-  Object.assign(window, { __sound: sound, __nibbo: { robot, brain, director, board, box, stage, bot } });
+  Object.assign(window, { __sound: sound, __nibbo: { robot, brain, director, board, box, stage, bot, tricks, speech } });
 
   // One frame loop for everything 3D, on GSAP's ticker (shared with Lenis and ScrollTrigger).
   gsap.ticker.add((_time, deltaMs) => {
@@ -109,8 +136,11 @@ async function boot(): Promise<void> {
     brain.update(dt);
     robot.update(dt);
     board.update(dt);
+    blocks.update(dt, heroEl.getBoundingClientRect());
     stage.scene.updateMatrixWorld();
     inside.update();
+    speech.update();
+    coach.update(dt);
     stage.render();
   });
 

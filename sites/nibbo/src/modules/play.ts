@@ -8,6 +8,7 @@ import type { Board } from '../three/board';
 import type { Brain } from '../three/brain';
 import type { Director, Slot } from '../three/director';
 import type { Robot } from '../three/robot';
+import type { Tricks } from './tricks';
 
 type Repeat = Extract<Block, { kind: 'repeat' }>;
 
@@ -44,8 +45,8 @@ function saveStars(stars: number[]): void {
  * tapping a placed block removes it), presses Go, and the interpreter's events are played back on the 3D board
  * with the real robot: rolling, turning, hopping, bumping into letter blocks, collecting sparks, charging.
  */
-export function initPlay(o: { director: Director; board: Board; brain: Brain; robot: Robot; sound: Sound; lenis: Lenis }): { update(): void } {
-  const { director, board, brain, robot, sound, lenis } = o;
+export function initPlay(o: { director: Director; board: Board; brain: Brain; robot: Robot; sound: Sound; lenis: Lenis; tricks: Tricks }): { update(): void } {
+  const { director, board, brain, robot, sound, lenis, tricks } = o;
   const slotEl = $('[data-slot="play"]');
   const slot: Slot = {
     id: 'play',
@@ -328,15 +329,19 @@ export function initPlay(o: { director: Director; board: Board; brain: Brain; ro
     });
     timeline = tl;
     let collected = 0;
+    let steps = 0;
 
     for (const e of events) {
       switch (e.kind) {
         case 'move':
-          tl.add(() => {
-            highlight(e.block);
-            sound.roll(0.42);
-            robot.wheelSpeed = 12;
-          });
+          {
+            const step = steps++;
+            tl.add(() => {
+              highlight(e.block);
+              sound.roll(0.42, step);
+              robot.wheelSpeed = 12;
+            });
+          }
           tl.to(b, { c: e.to.c, r: e.to.r, duration: 0.42, ease: 'power1.inOut' });
           tl.add(() => void (robot.wheelSpeed = 0));
           break;
@@ -362,7 +367,6 @@ export function initPlay(o: { director: Director; board: Board; brain: Brain; ro
           // Nudge towards the block, bump, bounce back.
           tl.add(() => {
             highlight(e.block, true);
-            sound.roll(0.2);
             const from = { c: b.c, r: b.r };
             const dc = e.at.c - from.c;
             const dr = e.at.r - from.r;
@@ -424,6 +428,7 @@ export function initPlay(o: { director: Director; board: Board; brain: Brain; ro
             renderDots();
             board.celebrate();
             sound.jingle();
+            tricks.find('solve');
             brain.react('starry', 2.4, false);
             brain.dance();
             vibrate([15, 40, 15, 40, 60]);
