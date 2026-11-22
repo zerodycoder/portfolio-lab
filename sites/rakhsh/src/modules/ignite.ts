@@ -112,7 +112,7 @@ export function initIgnite(sound: Sound, reduced: boolean): void {
     gsap.to(stamp, { opacity: 0, duration: 0.6, delay: 2.2 });
     flash(0.35, 0.7);
     bolts.burst();
-    sound.crack(1);
+    sound.crack(0.6);
     vibrate([40, 30, 90]);
   };
 

@@ -37,11 +37,12 @@ and horizontal overflow in `report.json`. `--sound` enters with sound and record
 
 - `src/main.ts` boots modules in page order (pinned sections must measure in order), then runs the entry gate.
 - `src/lib/sound.ts` synthesises all audio with Web Audio (no audio files): UI ticks, lightning crack, printer,
-  ambient room tone, and an electric-motor whine that tracks speed. Audio starts only after "Enter with sound".
+  ambient room tone, and an electric-motor whine that tracks speed. Audio starts only after "Enter with sound",
+  with a soft power-up (peaks around -17 dBFS) and a master fade-in, so a phone at full volume doesn't startle.
   On iPhone it opens the media audio channel (audio session "playback" plus a silent looping `<audio>`) so the
   ring/silent switch doesn't mute it.
-- Hero: on landscape screens the film stands on the horizon beam between the copy and the wordmark; on portrait
-  screens it is shown 2.4 viewport-widths wide and the camera pans from the rear to the headlight as it ignites.
+- Hero: the whole bike stands on the horizon beam between the copy and the wordmark on every screen (on phones
+  the frame may overhang the edges slightly, and a larger three-line tagline fills the space above).
   Mouse parallax on desktop, device-tilt parallax on phones (iOS permission is requested on the entry tap).
 - `src/lib/finish.ts` is the shared finish selection; it retints the site (`--accent`) and syncs the configurator
   with the reservation form.

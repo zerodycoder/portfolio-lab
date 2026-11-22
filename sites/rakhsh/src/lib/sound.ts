@@ -117,7 +117,8 @@ export class Sound {
       if (ctx && this.master) {
         void ctx.resume();
         this.master.gain.cancelScheduledValues(ctx.currentTime);
-        this.master.gain.setTargetAtTime(0.85, ctx.currentTime, 0.06);
+        // Ease in over about a second: phones are often at full volume and a hard start is startling.
+        this.master.gain.setTargetAtTime(0.85, ctx.currentTime, 0.35);
         this.startAmbient();
       }
     } else if (this.ctx && this.master) {
@@ -196,6 +197,27 @@ export class Sound {
     const l = this.live();
     if (!l) return;
     this.noiseHit(l, l.ctx.currentTime, 'bandpass', 320, 2600, 1.2, 0.22 * level, 0.25, 0.55);
+  }
+
+  /** Entry: a soft rising swell, a breath of air and a quiet chime. Welcoming, never a bang. */
+  powerUp(): void {
+    const l = this.live();
+    if (!l) return;
+    const t = l.ctx.currentTime;
+    const o = l.ctx.createOscillator();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(70, t);
+    o.frequency.exponentialRampToValueAtTime(150, t + 1.8);
+    const g = l.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.16, t + 0.8);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 2.4);
+    o.connect(g).connect(l.out);
+    o.start(t);
+    o.stop(t + 2.5);
+    this.noiseHit(l, t, 'bandpass', 380, 2200, 0.9, 0.05, 0.7, 1.1);
+    this.tone(l, t + 0.6, 'sine', 1320, 1316, 0.03, 0.03, 1.8);
+    this.tone(l, t + 0.6, 'sine', 1980, 1974, 0.012, 0.03, 1.3);
   }
 
   /** Lightning: a broadband crack, crackle and sub thump. */

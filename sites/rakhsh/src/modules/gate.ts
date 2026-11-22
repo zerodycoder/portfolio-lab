@@ -66,7 +66,7 @@ export function runGate(opts: { sound: Sound; lenis: Lenis; tasks: Task[] }): Pr
       if (!ready) return;
       requestMotion();
       sound.setEnabled(withSound);
-      sound.crack(0.9);
+      sound.powerUp();
       gate.classList.add('is-leaving');
       const tl = gsap.timeline();
       tl.to(barFill, { scaleY: 7, duration: 0.09, ease: 'power2.in' })
