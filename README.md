@@ -1,12 +1,12 @@
 # portfolio-lab
 
-Showcase sites, one per folder under `sites/`. Each is a standalone Vite + TypeScript project (npm workspaces).
-Plumbing they share lives in `packages/kit`.
+Showcase sites designed and built with Claude Code, one per folder under `sites/`. Each is a standalone Vite +
+TypeScript project (npm workspaces). Plumbing they share lives in `packages/kit`.
 
 | Site | Concept | Status |
 | --- | --- | --- |
-| `sites/rakhsh` | RAKHSH, a fictional electric motorcycle (cinematic, generated media) | Live at rakhsh.zerodycoder.com |
-| `sites/nibbo` | NIBBO, a fictional coding robot for kids (live 3D, everything drawn by code) | Live at nibbo.zerodycoder.com |
+| `sites/rakhsh` | RAKHSH, a fictional electric motorcycle (cinematic, generated media) | Live at [rakhsh.zerodycoder.com](https://rakhsh.zerodycoder.com) |
+| `sites/nibbo` | NIBBO, a fictional coding robot for kids (live 3D, everything drawn by code) | Live at [nibbo.zerodycoder.com](https://nibbo.zerodycoder.com) |
 
 ## Commands
 
@@ -24,9 +24,16 @@ node tools/shoot.mjs <url> tools/out/<run> --site=nibbo [--browser=msedge] [--so
 section on desktop (1440×900) and mobile (390×844), and writes `report.json`: console errors, failed requests, video
 playback, the audio engine state (`--sound` enters with sound), horizontal overflow, and whatever the site's probe
 returns. Each site has a scenario in `tools/scenarios/<site>.mjs` with its default sections, its actions and its
-probe. A section is written `id[@fraction][:action][~seconds]`: the fraction is through a pinned section's scroll (or
-through the section's height), the action is defined by the scenario (NIBBO's include `toss`, which drags the robot
-with real touch events on mobile, `dizzy`, `xray`, `solve` and `loop`), and `~6` waits six extra seconds.
+probe. A section is written `id[@fraction][^edge][:action][~seconds]`:
+
+- `@0.4` is a point through a pinned section's scroll (or through the section's height);
+- `^0.5` parks the section's top half a screen down, the hand-over between two sections (where layouts collide);
+- `:action` runs one of the scenario's actions. NIBBO's drive the real thing: `toss` and `longpress` pick the robot
+  up (with real touch events on mobile, and check the page didn't scroll), `dizzy`, `poke`, `tricks`, `xray`,
+  `mood`, `solve` and `loop` (build and run programs), `custom`, `name` and `pack`;
+- `~6` waits six extra seconds before the screenshot.
+
+`--resolve=host:ip` pins a hostname for the browser, to test a new subdomain before local DNS caches catch up.
 
 ## packages/kit
 
@@ -44,8 +51,15 @@ Shared by every site, imported as `@portfolio-lab/kit/<module>` (TypeScript sour
 
 ## NIBBO architecture
 
-No model files, no images, no audio files: the robot, its face, the game board, the shipping box and every sound are
-generated in code.
+No model files, no textures, no audio files: the robot, its face, the game board, the shipping box and every sound
+are generated in code. The only image is the social preview, and that is a screenshot of the page itself
+(`tools/og-nibbo.mjs`).
+
+- **Sections:** entry gate, hero, chat, inside (anatomy tour), feelings, play (the game), make yours
+  (configurator), specs, adopt, and a night-time footer.
+- **Entry gate** (`src/modules/gate.ts`): Nibbo sleeps on a charging battery while fonts load and every shader
+  compiles (real progress, with a little boot log); on "Wake Nibbo up" its LED visor flies out of the gate and lands
+  exactly on the 3D robot's face, where the wake-up animation takes over.
 
 - **One canvas, one robot.** `src/three/stage.ts` is a single fixed, transparent WebGL canvas between two content
   layers (`.behind` under the robot, `.front` over it), so phones hold one WebGL context. Pinned and fixed elements
@@ -75,13 +89,14 @@ generated in code.
 - **The face** (`src/three/face.ts`) is a 40 × 20 LED matrix. Expressions are parametric eye shapes (lids, cheeks,
   hearts, spirals, stars) drawn into a supersampled mask; every LED takes its cell's brightness, so blinks and gaze
   animate smoothly but always read as dots. It also scrolls text (the name being typed). The same engine draws the
-  gate's visor and the mood buttons' mini faces.
+  gate's visor, the mood buttons' mini faces and the chat avatars.
 - **Behaviour** (`src/three/brain.ts`): gaze follows the mouse or the phone's tilt (eyes lead, the head follows);
   it blinks, gets sleepy after 26 s idle and dozes off at 34 s; fast mouse circles or phone shakes make it dizzy; pokes
   get a different reaction each time (and five in a row make it grumpy); it can be picked up, dangles, and is tossed
   with a small hand-written physics loop; the antenna rides a spring driven by the head's acceleration.
-- **The game** (`src/game/engine.ts`, `levels.ts`, `src/modules/play.ts`, `src/three/board.ts`): an interpreter
-  runs the visitor's block program (with Repeat) to completion and returns events (move, turn, jump, bonk, edge,
+- **The game** (`src/game/engine.ts`, `levels.ts`, `src/modules/play.ts`, `src/three/board.ts`): five levels that
+  each add one idea (forward, turns, sparks, loops, jumps). An interpreter runs the visitor's block program (with
+  Repeat) to completion and returns events (move, turn, jump, bonk, edge,
   spark, locked, home, out), which are then played back on a 3D board built per level. Stars are by block count
   against par; progress is kept in `localStorage`.
 - **Adoption** (`src/modules/adopt.ts`, `src/three/box.ts`): typing a name scrolls it across the face and Nibbo says
@@ -94,6 +109,12 @@ generated in code.
 - **Fuller pages**: floating wooden letter blocks in the hero (parallax against the pointer or tilt, and they jump
   when clicked), a spinning "made entirely of code" stamp, a turntable and "Surprise me" in the configurator, a
   "what happens next" timeline in adoption, and a footer where the lights go out and stars come up.
+
+## Deploying
+
+Each site is its own Vercel project with its root directory set to `sites/<name>`; Vercel installs the workspace
+from the repo root, so `packages/kit` is linked in. Every push to `main` deploys both sites. Each site has a subdomain
+of zerodycoder.com, pointed at Vercel with a CNAME record.
 
 ## RAKHSH
 
