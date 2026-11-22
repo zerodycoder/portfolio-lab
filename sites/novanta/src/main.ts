@@ -1,0 +1,395 @@
+import '@fontsource-variable/fraunces';
+import '@fontsource-variable/fraunces/wght-italic.css';
+import '@fontsource-variable/instrument-sans';
+import '@fontsource-variable/caveat';
+import '@fontsource/courier-prime/400.css';
+import '@fontsource/courier-prime/700.css';
+import './styles/main.css';
+
+import type Lenis from 'lenis';
+import * as THREE from 'three';
+import { siClaude, siThreedotjs, siTypescript, siVercel, siVite, siWebassembly } from 'simple-icons';
+import { $ } from '@portfolio-lab/kit/dom';
+import { runGate } from '@portfolio-lab/kit/gate';
+import { brandLogo, playwrightLogo, renderBadges, waveformLogo } from '@portfolio-lab/kit/stack';
+import { Delivery, type Ride } from './app/delivery';
+import { Hub } from './app/hub';
+import { Input } from './app/input';
+import { Kitchen, STEPS, type SendInfo, type StepId } from './app/kitchen';
+import { Stamps } from './app/stamps';
+import { clearNotes, closeSheet, note, setPlace, wait } from './app/ui';
+import { Sound } from './lib/sound';
+import { store } from './lib/store';
+import { Bake } from './pizza/bake';
+import { loadRapier, Physics } from './pizza/physics';
+import { Pizza } from './pizza/pizza';
+import { PizzaBox } from './world/box';
+import { buildDoorstep, buildFacade } from './world/facade';
+import { easeInOut, easeOut, Puffs, tween } from './world/fx';
+import { buildOven, buildPeels } from './world/oven';
+import { Rig, type PlaceId } from './world/places';
+import { buildProps } from './world/props';
+import { buildRoom } from './world/room';
+import { Stage } from './world/stage';
+
+const base = import.meta.env.BASE_URL;
+type Route = 'strada' | 'sala' | 'menu' | 'famiglia' | 'lievito' | 'fronte' | StepId | 'viaggio' | 'casa';
+const STEP_IDS = STEPS.map((s) => s.id) as string[];
+const ROUTES = ['strada', 'sala', 'menu', 'famiglia', 'lievito', 'fronte', 'viaggio', 'casa', ...STEP_IDS];
+
+async function boot(): Promise<void> {
+  const page = { background: 'dark', ink: '#f4eee3' } as const;
+  renderBadges($('[data-badges]'), [
+    { name: 'Claude Code', logo: brandLogo(siClaude, page) },
+    { name: 'TypeScript', logo: brandLogo(siTypescript, page) },
+    { name: 'three.js', logo: brandLogo(siThreedotjs, page) },
+    { name: 'Rapier (WebAssembly)', logo: brandLogo(siWebassembly, page) },
+    { name: 'GLSL shaders', mark: '#ff8a3a' },
+    { name: 'Web Audio API', logo: waveformLogo(page.ink) },
+    { name: 'Vite', logo: brandLogo(siVite, page) },
+    { name: 'Playwright', logo: playwrightLogo },
+    { name: 'Vercel', logo: brandLogo(siVercel, page) },
+  ]);
+
+  const canvas = $<HTMLCanvasElement>('[data-stage]');
+  const stage = new Stage(canvas);
+  const sound = new Sound();
+  const rig = new Rig(stage);
+  const input = new Input(canvas);
+  const stamps = new Stamps();
+  stamps.onStamp = () => sound.stamp();
+  const status = $('[data-gate-status]');
+  const say = (t: string): void => void (status.textContent = t);
+
+  // ————— Loading (the gate shows real progress) —————
+  let pizza!: Pizza;
+  let oven!: ReturnType<typeof buildOven>;
+  let props!: Awaited<ReturnType<typeof buildProps>>;
+  let facade!: ReturnType<typeof buildFacade>;
+  const rapier = loadRapier();
+  const world = (async () => {
+    await document.fonts.ready;
+    say('Sweeping the floor…');
+    const room = await buildRoom(base);
+    stage.scene.add(room.group);
+    say('Lighting the oven…');
+    oven = buildOven('NOVANTA');
+    stage.scene.add(oven.group);
+    props = await buildProps(base);
+    stage.scene.add(props.group);
+    facade = buildFacade();
+    stage.scene.add(facade.group);
+    stage.scene.add(buildDoorstep().group);
+    say('Tearing the mozzarella…');
+    pizza = await Pizza.create(base);
+    await pizza.preload();
+    stage.scene.add(pizza.group);
+    rig.jump('strada');
+    say('Warming up…');
+    await stage.warm();
+  })();
+
+  const lenisStub = { stop() {}, start() {} } as unknown as Lenis;
+  let pulled = 0;
+  const gateDone = runGate({
+    root: $('[data-gate]'),
+    sound,
+    lenis: lenisStub,
+    tasks: [(r) => world.then(() => r(1)), (r) => rapier.then(() => r(1))],
+    minMs: 1800,
+    maxMs: 30000,
+    progress: (k) => ($('[data-gate-fill]').style.width = `${(k * 100).toFixed(1)}%`),
+    leave: async (withSound, reveal) => {
+      $('[data-gate]').classList.add('is-leaving');
+      if (withSound) sound.setFire(0.15);
+      sound.shutter(1.1);
+      await tween(1.1, (k) => facade.setOpen(pulled + (1 - pulled) * k), easeOut);
+      reveal();
+      await rig.go('soglia', 1.6, 0.05);
+      await rig.go('sala', 1.8, 0.05);
+    },
+  });
+  await world;
+  stage.start();
+
+  // The shutter can be dragged up by hand before entering.
+  const pull = $('[data-gate-pull]');
+  let y0 = 0;
+  pull.addEventListener('pointerdown', (e) => {
+    y0 = e.clientY;
+    pull.setPointerCapture(e.pointerId);
+  });
+  pull.addEventListener('pointermove', (e) => {
+    if (!pull.hasPointerCapture(e.pointerId)) return;
+    pulled = Math.max(0, Math.min(0.9, (y0 - e.clientY) / (innerHeight * 0.5)));
+    facade.setOpen(pulled);
+  });
+  pull.addEventListener('pointerup', (e) => {
+    if (!pull.hasPointerCapture(e.pointerId)) return;
+    pull.releasePointerCapture(e.pointerId);
+    if (pulled > 0.25) $<HTMLButtonElement>('[data-enter="sound"]').click();
+    else {
+      const from = pulled;
+      void tween(0.35, (k) => facade.setOpen(from * (1 - k)));
+      pulled = 0;
+    }
+  });
+
+  // ————— The kitchen, the corners, the ride —————
+  let physics: Physics | null = null;
+  const getPhysics = async (): Promise<Physics> => (physics ??= new Physics(await rapier));
+  const delivery = new Delivery(sound);
+  const arrivalBox = new PizzaBox();
+  arrivalBox.group.visible = false;
+  stage.scene.add(arrivalBox.group);
+  const steam = new Puffs(stage.camera, '#ffffff', 0.1, 80);
+  stage.scene.add(steam.mesh);
+  let steaming = false;
+
+  const kitchen = new Kitchen({
+    stage,
+    rig,
+    input,
+    oven,
+    peels: buildPeels(),
+    pizza,
+    physics: getPhysics,
+    sound,
+    stamps,
+    onSend: (info) => void send(info),
+    onExit: () => go('sala'),
+  });
+  const hub = new Hub({
+    stage,
+    rig,
+    props,
+    sound,
+    stamps,
+    makePizza: () => {
+      if (!kitchen.started || route === 'casa' || route === 'viaggio') kitchen.fresh();
+      go((kitchen.step ?? 'impasto') as Route);
+    },
+    bakeClassic: (cl) => {
+      closeSheet();
+      leaveCurrent('impasto');
+      route = 'impasto';
+      void kitchen.bakeClassic(cl);
+    },
+    go: (p) => go(p as Route),
+  });
+
+  stage.tick((dt, t) => {
+    pizza.update(dt);
+    oven.update(dt, t);
+    facade.update(dt, t);
+    pizza.surface.uTime.value = t;
+    rig.update(dt);
+    steam.update(dt);
+    if (steaming && Math.random() < dt * 8) {
+      const p = pizza.group.getWorldPosition(new THREE.Vector3());
+      const a = Math.random() * Math.PI * 2;
+      steam.burst(p.add(new THREE.Vector3(Math.cos(a) * 0.08, 0.01, Math.sin(a) * 0.08)), 1, 0.004, 0.05, 0.035, 2.2);
+    }
+  });
+
+  // Pointer parallax in the dining room.
+  addEventListener('pointermove', (e) => {
+    if (route !== 'sala' && route !== 'strada') return rig.sway.set(0, 0);
+    rig.sway.set((e.clientX / innerWidth - 0.5) * 2, (e.clientY / innerHeight - 0.5) * 2);
+  });
+
+  // Sound toggle = the radio's power.
+  const radioBtn = $('[data-radio]');
+  sound.onRadio((on) => {
+    radioBtn.setAttribute('aria-pressed', String(on));
+    $('[data-radio-label]').textContent = on ? 'Radio Napoli' : 'Radio off';
+  });
+  radioBtn.addEventListener('click', () => {
+    sound.setRadio(!sound.radio);
+    if (sound.radio) note('Radio Napoli, 90.0 FM.', '“Valzer del forno”, an old waltz for mandolin. (We wrote it.)', 3200);
+  });
+
+  // ————— Routing —————
+  let route: Route = 'strada';
+
+  const leaveCurrent = (next: Route): void => {
+    const wasKitchen = STEP_IDS.includes(route);
+    const toKitchen = STEP_IDS.includes(next);
+    if (wasKitchen && !toKitchen) kitchen.hide();
+    if (route === 'viaggio' && next !== 'viaggio') delivery.hide();
+    if (route === 'casa' && next !== 'casa') {
+      arrivalBox.group.visible = false;
+      steaming = false;
+    }
+    hub.leave();
+    clearNotes();
+    if (!toKitchen) {
+      stage.setInsets({ top: 0, bottom: 0, left: 0, right: 0 });
+      oven.setCutaway(false);
+    }
+  };
+
+  const go = (next: Route, push = true): void => {
+    if (!ROUTES.includes(next)) next = 'sala';
+    if (STEP_IDS.includes(next) && !kitchen.started) next = 'impasto';
+    leaveCurrent(next);
+    route = next;
+    if (push && location.hash.slice(1) !== next) history.pushState({ place: next }, '', `#${next}`);
+    const sheetInsets = (): void => {
+      const phone = innerWidth <= 760;
+      stage.setInsets(phone ? { top: 56, bottom: innerHeight * 0.55, left: 0, right: 0 } : { top: 64, bottom: 0, left: 0, right: 440 });
+    };
+    switch (next) {
+      case 'strada':
+      case 'sala':
+        stage.setInsets({ top: 0, bottom: 0, left: 0, right: 0 });
+        void rig.go('sala', 1.6, 0.1);
+        hub.enterSala();
+        break;
+      case 'menu':
+      case 'famiglia':
+      case 'lievito':
+      case 'fronte':
+        sheetInsets();
+        void rig.go(next as PlaceId, 1.5, 0.08);
+        hub.open(next as PlaceId);
+        break;
+      case 'viaggio': {
+        const ride = Delivery.saved();
+        if (!ride) return go('sala', false);
+        setPlace('In viaggio', 'On the way');
+        delivery.show(ride);
+        break;
+      }
+      case 'casa':
+        void arrive();
+        break;
+      default:
+        void kitchen.go(next as StepId);
+    }
+  };
+
+  addEventListener('popstate', (e) => {
+    const r = ((e.state as { place?: string } | null)?.place ?? location.hash.slice(1)) as Route;
+    if (route === 'viaggio' && r !== 'casa') return history.pushState({ place: 'viaggio' }, '', '#viaggio');
+    go(r || 'sala', false);
+  });
+
+  // ————— Sending and arriving —————
+
+  const send = async (info: SendInfo): Promise<void> => {
+    store.set('pizza', { pizza: pizza.save(), report: info.report, name: info.name, order: info.order });
+    const ride = delivery.start(info.name, info.to);
+    sound.beep();
+    await wait(300);
+    leaveCurrent('viaggio');
+    route = 'viaggio';
+    history.pushState({ place: 'viaggio' }, '', '#viaggio');
+    setPlace('In viaggio', 'On the way');
+    delivery.show(ride);
+  };
+
+  delivery.onArrive = () => {
+    route = 'casa';
+    history.replaceState({ place: 'casa' }, '', '#casa');
+    delivery.hide();
+    void arrive();
+  };
+
+  const arrive = async (): Promise<void> => {
+    const saved = store.get<{ pizza: Record<string, unknown>; report: { grade: string; seconds: number; spots: number } | null; name: string; order: number } | null>('pizza', null);
+    if (!saved) return go('sala');
+    // A reload loses the pizza in memory: rebuild it from what was saved when it was sent.
+    if (!pizza.pieces.length && saved.pizza) {
+      await pizza.restore(saved.pizza);
+      new Bake(pizza).applyAll();
+    }
+    kitchen.hide();
+    setPlace('Alla porta', 'At your door');
+    const spot = new THREE.Vector3(30, 0.018, 0.1);
+    arrivalBox.group.visible = true;
+    arrivalBox.group.position.copy(spot);
+    arrivalBox.group.rotation.y = 0.15;
+    arrivalBox.fold = 1;
+    arrivalBox.lid = 0;
+    arrivalBox.apply();
+    arrivalBox.setTicket({ name: saved.name, pizza: pizza.name, lines: [], seconds: saved.report?.seconds ?? 90, grade: saved.report?.grade ?? 'Pizzaiolo', order: saved.order });
+    pizza.group.position.copy(spot).setY(spot.y + 0.004);
+    pizza.group.rotation.y = 0.15 + (pizza.group.rotation.y % (Math.PI * 2));
+    pizza.group.visible = true;
+    pizza.setWedge(0, 0, 0);
+    stage.setInsets({ top: 64, bottom: innerWidth <= 760 ? innerHeight * 0.42 : 0, left: 0, right: innerWidth <= 760 ? 0 : 440 });
+    rig.jump('casa');
+    sound.doorbell();
+    navigator.vibrate?.([60, 80, 60]);
+    stamps.give('door');
+    const el = (await import('./app/ui')).sheet(
+      `<p class="sheet__kicker">Ding dong!</p>
+      <h2 class="sheet__title"><span class="it">È arrivata.</span></h2>
+      <p class="sheet__lead">${saved.name ? `For ${saved.name}: ` : ''}“${pizza.name}”, still warm. ${innerWidth <= 760 ? 'Swipe the lid up' : 'Drag the lid up'}, or tap below.</p>
+      <p><button class="btn btn--tomato" type="button" data-open>Apri · Open the box</button></p>`,
+      {},
+    );
+    let opened = false;
+    const open = async (): Promise<void> => {
+      if (opened) return;
+      opened = true;
+      input.set(null);
+      sound.cardboard();
+      await tween(0.9, (k) => {
+        arrivalBox.lid = k;
+        arrivalBox.apply();
+      }, easeInOut);
+      steaming = true;
+      steam.burst(pizza.group.position.clone().setY(0.05), 14, 0.08, 0.12, 0.06, 2.5);
+      delivery.clear();
+      const r = saved.report;
+      el.innerHTML = `<p class="sheet__kicker">Buon appetito</p>
+        <h2 class="sheet__title"><span class="it">${pizza.name}</span></h2>
+        <p class="sheet__lead">The very pizza you stretched, dressed and baked: the same ${r?.spots ?? 0} leopard spots, the same melted cheese, the same cuts.</p>
+        ${r ? `<div class="report"><div class="report__grade">${r.grade}</div><div>Baked in ${r.seconds} s at 485 °C</div></div>` : ''}
+        <p class="fineprint">Stamps on your card: ${stamps.count}/10.</p>
+        <div class="panel__row" style="margin-top:14px"><button class="btn btn--tomato" type="button" data-again>Fanne un’altra · Make another</button><button class="btn btn--paper" type="button" data-shop>Torna in pizzeria · Back to the shop</button><button class="btn btn--paper" type="button" data-card>La tessera</button></div>`;
+      el.querySelector('[data-again]')?.addEventListener('click', () => {
+        kitchen.fresh();
+        go('impasto');
+      });
+      el.querySelector('[data-shop]')?.addEventListener('click', () => {
+        kitchen.fresh();
+        go('sala');
+      });
+      el.querySelector('[data-card]')?.addEventListener('click', () => stamps.open());
+    };
+    el.querySelector('[data-open]')?.addEventListener('click', () => void open());
+    input.set({ up: (_p, _s, v) => v.y < -300 && void open() });
+  };
+
+  // ————— Start —————
+  const withSound = await gateDone;
+  void withSound;
+  $('[data-bar]').classList.add('is-on');
+  const ride = Delivery.saved();
+  const wanted = location.hash.slice(1) as Route;
+  if (ride && Date.now() - ride.startedAt < ride.duration) {
+    route = 'viaggio';
+    history.replaceState({ place: 'viaggio' }, '', '#viaggio');
+    setPlace('In viaggio', 'On the way');
+    delivery.show(ride);
+  } else if (ride) {
+    route = 'casa';
+    history.replaceState({ place: 'casa' }, '', '#casa');
+    void arrive();
+  } else if (wanted && wanted !== 'strada' && ROUTES.includes(wanted)) {
+    go(wanted, false);
+    history.replaceState({ place: wanted }, '', `#${wanted}`);
+  } else {
+    route = 'sala';
+    history.replaceState({ place: 'sala' }, '', '#sala');
+    hub.enterSala();
+    note('Benvenuti da Novanta!', 'Welcome. Tap “Impasta!” to make a pizza, or look around.', 4200);
+  }
+  void (window as unknown as { __rides?: Ride });
+  Object.assign(window, { __novanta: { stage, oven, pizza, rig, kitchen, hub, sound, stamps, delivery, facade, props, go: (r: Route) => go(r), getPhysics, arrive } });
+}
+
+void boot();

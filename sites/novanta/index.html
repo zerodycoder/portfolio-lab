@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>NOVANTA — Pizzeria napoletana</title>
+    <meta
+      name="description"
+      content="A Neapolitan pizzeria you can walk into. Stretch the dough, dress it, bake it in a wood-fired oven, cut it, and have that very pizza delivered to your door."
+    />
+    <meta name="theme-color" content="#120d0a" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="NOVANTA" />
+    <meta property="og:title" content="NOVANTA — Pizzeria napoletana" />
+    <meta property="og:description" content="Walk in, make your pizza, bake it in a wood-fired oven, and have it delivered. A Neapolitan pizzeria, built in code." />
+    <meta property="og:url" content="https://novanta.zerodycoder.com/" />
+    <meta property="og:image" content="https://novanta.zerodycoder.com/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="canonical" href="https://novanta.zerodycoder.com/" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" data-favicon />
+    <noscript><style>.gate{display:none!important}</style></noscript>
+  </head>
+  <body>
+    <canvas class="stage" data-stage aria-hidden="true"></canvas>
+
+    <!-- Entry: a closed shop at night. The shutter rolls up when the visitor drags it (or taps). -->
+    <div class="gate" data-gate role="dialog" aria-modal="true" aria-label="Open the shutter">
+      <div class="gate__loading" data-gate-loading>
+        <p class="gate__sign" aria-hidden="true"><span data-sign>NOVANTA</span></p>
+        <p class="gate__sub">Pizzeria napoletana · dal 1958</p>
+        <div class="gate__bar" aria-hidden="true"><i data-gate-fill></i></div>
+        <p class="gate__status mono" data-gate-status>Lighting the oven…</p>
+      </div>
+      <div class="gate__ready">
+        <div class="gate__pull" data-gate-pull aria-hidden="true">
+          <span class="gate__handle"></span>
+          <span class="gate__hint">Drag the shutter up</span>
+        </div>
+        <div class="gate__choices">
+          <button class="btn btn--tomato btn--big" type="button" data-enter="sound">
+            <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4Z" /><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+            Apri · Open, with music
+          </button>
+          <button class="btn btn--ghost" type="button" data-enter="mute">Open quietly</button>
+        </div>
+        <div class="gate__stack">
+          <p class="gate__stack-label mono">Built with</p>
+          <ul class="badges" data-badges aria-label="Technologies this site is built with"></ul>
+        </div>
+      </div>
+    </div>
+
+    <header class="bar" data-bar>
+      <button class="bar__logo" type="button" data-go="sala" aria-label="NOVANTA, back to the dining room">
+        <span class="bar__word">NOVANTA</span><span class="bar__since">pizzeria · dal 1958</span>
+      </button>
+      <div class="bar__place" aria-live="polite"><span class="it" data-place-it></span><span class="en" data-place-en></span></div>
+      <div class="bar__right">
+        <button class="tessera-btn" type="button" data-tessera aria-label="Loyalty card: things to try">
+          <span class="tessera-btn__card" aria-hidden="true"></span><b data-tessera-count>0/10</b>
+        </button>
+        <button class="radio-btn" type="button" data-radio aria-pressed="false" aria-label="Radio (sound)">
+          <span class="radio-btn__dial" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span class="radio-btn__label mono" data-radio-label>Radio off</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Hotspots in the dining room, positioned over the 3D scene. -->
+    <nav class="spots" data-spots aria-label="Places in the pizzeria"></nav>
+
+    <!-- The kitchen: steps, the working panel, the ticket. -->
+    <section class="kitchen" data-kitchen aria-label="Make your pizza" hidden>
+      <ol class="steps" data-steps></ol>
+      <div class="panel" data-panel></div>
+      <aside class="ticket" data-ticket aria-label="Your order">
+        <button class="ticket__pill" type="button" data-ticket-pill aria-expanded="false"><span class="mono">Scontrino</span> <b data-ticket-total>€ 0,00</b></button>
+        <div class="ticket__paper" data-ticket-paper></div>
+      </aside>
+      <div class="bake" data-bake hidden>
+        <div class="bake__clock" aria-hidden="true"><canvas data-bake-ring width="240" height="240"></canvas><b data-bake-secs>0</b><span>sec</span></div>
+      </div>
+    </section>
+
+    <div class="sheet" data-sheet hidden></div>
+    <div class="note" data-note aria-live="polite" hidden><p class="note__it" data-note-it></p><p class="note__en" data-note-en></p></div>
+    <div class="stamp-toast" data-stamp-toast role="status" aria-live="polite"></div>
+
+    <div class="tessera" data-tessera-panel role="dialog" aria-label="Loyalty card" hidden>
+      <div class="tessera__card">
+        <button type="button" class="tessera__close" data-tessera-close aria-label="Close">×</button>
+        <p class="tessera__brand">NOVANTA</p>
+        <p class="tessera__title">Tessera fedeltà</p>
+        <p class="tessera__sub">Ten stamps, ten things to find. Fill the card.</p>
+        <ol class="tessera__grid" data-tessera-grid></ol>
+      </div>
+    </div>
+
+    <div class="map" data-map hidden></div>
+    <p class="sr-only" data-announce aria-live="assertive"></p>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
