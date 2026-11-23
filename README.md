@@ -24,14 +24,17 @@ node tools/fetch-novanta-pbr.mjs             # download NOVANTA's scanned materi
 node tools/og-nibbo.mjs                      # render NIBBO's 1200×630 social image from the live page (preview running)
 node tools/og-sayeh.mjs                      # render SAYEH's social image: a rosetta poured on the live page
 node tools/og-novanta.mjs                    # render NOVANTA's social image: the street at night, shutter down
+node tools/look-novanta.mjs <out> <place> [--mobile] [--script=f.js]   # screenshot one NOVANTA place (dev server running)
 node tools/shoot.mjs <url> tools/out/<run> --site=nibbo [--browser=msedge] [--sound] [--only=desktop|mobile] [--sections=…] [--resolve=host:ip]
 ```
 
 `shoot.mjs` drives a real browser (Edge with `--browser=msedge`, needed to play H.264 video), screenshots every
 section on desktop (1440×900) and mobile (390×844), and writes `report.json`: console errors, failed requests, video
 playback, the audio engine state (`--sound` enters with sound), horizontal overflow, and whatever the site's probe
-returns. Each site has a scenario in `tools/scenarios/<site>.mjs` with its default sections, its actions and its
-probe. A section is written `id[@fraction][^edge][:action][~seconds]`, and a spec that starts with `/` navigates a
+returns. RAKHSH, NIBBO and SAYEH each have a scenario in `tools/scenarios/<site>.mjs` with their default sections,
+actions and probe. NOVANTA is a 3D place rather than a page of sections, so it has `tools/look-novanta.mjs`
+instead: it opens one place (`strada`, `sala`, `banco`, `forno`, …), can run a script against the
+`window.__novanta` hooks first, and takes the screenshot. A section is written `id[@fraction][^edge][:action][~seconds]`, and a spec that starts with `/` navigates a
 multi-page site to that path (through its router, `window.__go`) before the sections that follow:
 
 - `@0.4` is a point through a pinned section's scroll (or through the section's height);
@@ -194,7 +197,15 @@ the street into the dining room and the kitchen, and out on a delivery.
   finishing touches.
 - **Delivery** (`src/app/delivery.ts`): name the box, send it, and follow a 16-second ride across a drawn map of
   Naples; the tab's title and favicon count down, the ride survives a reload, and the same pizza arrives at the door.
+- **The menu** (`src/pizza/catalog.ts`): the classics, each with its story; "Bake it" makes one by itself (dough,
+  sauce, toppings) and hands over at the oven.
 - **Discovering things** (`src/app/stamps.ts`): a pizzaiolo's diploma on the wall with ten wax seals.
+- **Sound** (`src/lib/sound.ts`): everything synthesised and soft: the fire's crackle, the sizzle in the oven,
+  toppings landing on notes of a scale (a handful plays a phrase), the peel's scrape, cardboard, a doorbell. The
+  radio in the corner plays an original Neapolitan-style waltz on a mandolin and a guitar made by physical modelling
+  (Karplus-Strong plucked strings), through a small-radio filter.
+- **Hooks for testing**: `window.__novanta` exposes the stage, the camera rig, the kitchen, the oven, the delivery
+  and `go(place)`, which `tools/look-novanta.mjs` uses.
 - **Media**: the user's generated photos (toppings cut out of plain backgrounds, family photos) through
   `tools/process-novanta.mjs`; scanned materials and the HDRI from [Poly Haven](https://polyhaven.com) (CC0) through
   `tools/fetch-novanta-pbr.mjs`.
