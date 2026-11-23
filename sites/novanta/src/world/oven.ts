@@ -168,7 +168,9 @@ export function buildOven(name: string): Oven {
   vault.position.copy(F);
   group.add(vault);
   const tunnelGeo = new THREE.ExtrudeGeometry(hole, { depth: OVEN.mouthZ - (F.z + innerR * 0.92), bevelEnabled: false, curveSegments: 16 });
-  const tunnel = new THREE.Mesh(tunnelGeo, sootMat);
+  // Only the tunnel's walls and vault are drawn (extrude group 1). Its end caps (group 0) would close the passage:
+  // drawn from inside, the back cap reads as a lit wall right behind the arch, as if the oven's door were shut.
+  const tunnel = new THREE.Mesh(tunnelGeo, [new THREE.MeshBasicMaterial({ visible: false }), sootMat]);
   tunnel.position.set(F.x, F.y, F.z + innerR * 0.92);
   group.add(tunnel);
 

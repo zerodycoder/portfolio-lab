@@ -61,6 +61,10 @@ export class Kitchen {
   private said = new Set<string>();
   private noteAt = new Set<string>();
   private steamOn = false;
+  /** Pending switch of the oven's cutaway (it flips a moment after the camera starts moving). */
+  private cutawayTimer = 0;
+  /** Bumped on every leave(): an async step sequence still running from an earlier visit sees it and stops. */
+  private visit = 0;
   private classic: Classic | null = null;
   private order = 100 + Math.floor(Math.random() * 800);
   private drizzle: DrizzleId | null = null;
@@ -232,11 +236,15 @@ export class Kitchen {
   }
 
   leave(): void {
+    this.visit++;
     this.c.input.set(null);
     this.tickers = [];
     this.ladle.visible = false;
     this.wheel.visible = false;
     $('[data-bake]').hidden = true;
+    // Leaving mid-bake (Back) must give the oven its front again, including a cutaway that is still pending.
+    clearTimeout(this.cutawayTimer);
+    this.c.oven.setCutaway(false);
   }
 
   hide(): void {
@@ -644,6 +652,10 @@ export class Kitchen {
     const { peel, palino } = this.c.peels;
     const oven = this.c.oven;
     const bake = this.bake;
+    // Back (or any other move) during the sequence below ends this visit. Every await and every animation frame
+    // checks it, so a half-finished carry, slide-in or pull-out never acts on the step the visitor went to.
+    const visit = this.visit;
+    const gone = (): boolean => visit !== this.visit;
     p.syncPieceMatrices();
     this.panel(html`<p class="panel__kicker">3 · Forno</p>
       <h2 class="panel__title"><span class="it">Sulla pala</span></h2>
@@ -679,6 +691,7 @@ export class Kitchen {
       this.q('[data-inforna]').addEventListener('click', () => resolve());
       this.c.input.set({ up: (_p, _s, v) => v.y < -350 && resolve() });
     });
+    if (gone()) return;
     this.c.input.set(null);
     this.c.sound.whoosh();
     this.c.sound.scrape();
@@ -686,13 +699,18 @@ export class Kitchen {
     p.setWedge(0, 0, 0);
     const inside = OVEN_SPOT.clone();
     void this.c.rig.go('forno', 1.3, 0);
-    setTimeout(() => oven.setCutaway(true), 500);
+    this.cutawayTimer = window.setTimeout(() => oven.setCutaway(true), 500);
     await tween(0.6, (k) => {
+      if (gone()) return;
       p.group.position.copy(mouth.clone().lerp(inside, k));
       p.group.position.y = mouth.y + (inside.y - mouth.y) * k;
       peel.position.copy(mouth).add(new THREE.Vector3(0, -0.012, 0.0)).lerp(inside.clone().setY(inside.y - 0.01), k * 0.6);
     }, easeOut);
-    await tween(0.5, (k) => peel.position.z += k * 0.04, easeIn);
+    if (gone()) return;
+    await tween(0.5, (k) => {
+      if (!gone()) peel.position.z += k * 0.04;
+    }, easeIn);
+    if (gone()) return;
     peel.visible = false;
     this.c.sound.setFire(1);
     // Bake.
@@ -778,17 +796,22 @@ export class Kitchen {
       // The peel goes in, the pizza comes out to the board.
       peel.visible = true;
       peel.position.copy(OVEN_SPOT).add(new THREE.Vector3(0, -0.01, 0.35));
-      await tween(0.4, (k) => peel.position.z = OVEN_SPOT.z + 0.35 * (1 - k), easeOut);
+      await tween(0.4, (k) => {
+        if (!gone()) peel.position.z = OVEN_SPOT.z + 0.35 * (1 - k);
+      }, easeOut);
+      if (gone()) return;
       void this.c.rig.go('banco', 1.8);
-      setTimeout(() => oven.setCutaway(false), 700);
+      this.cutawayTimer = window.setTimeout(() => oven.setCutaway(false), 700);
       this.c.sound.whoosh();
       const from = p.group.position.clone();
       await tween(1.7, (k) => {
+        if (gone()) return;
         const v = from.clone().lerp(BOARD_SPOT, k);
         v.y += Math.sin(k * Math.PI) * 0.16;
         p.group.position.copy(v);
         peel.position.copy(v).add(new THREE.Vector3(0, -0.013, 0));
       });
+      if (gone()) return;
       peel.visible = false;
       p.group.rotation.y = bake.angle;
       $('[data-bake]').hidden = true;

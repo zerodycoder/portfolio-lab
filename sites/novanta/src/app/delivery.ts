@@ -139,7 +139,7 @@ export class Delivery {
     return store.get<Ride | null>('ride', null);
   }
 
-  start(name: string, to: string, duration = 32000): Ride {
+  start(name: string, to: string, duration = 16000): Ride {
     const ride: Ride = { startedAt: Date.now(), duration, seed: Math.floor(Math.random() * 1e6), name, to };
     store.set('ride', ride);
     return ride;
@@ -163,7 +163,7 @@ export class Delivery {
     el.innerHTML = `
       <header class="map__head">
         <div><h2><span class="it">In viaggio</span> to ${destEn}</h2><p>${ride.name ? `For ${ride.name}. ` : ''}Your rider is Enzo, on a scooter older than he is.</p></div>
-        <div class="map__eta"><b data-eta>0:30</b><span>ETA</span></div>
+        <div class="map__eta"><b data-eta>0:16</b><span>ETA</span></div>
       </header>
       <svg class="map__svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" aria-label="Map of the route">
         ${city.svg}
