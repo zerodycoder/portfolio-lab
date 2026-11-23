@@ -5,6 +5,7 @@ import type { Sound } from '../lib/sound';
 import type { PlaceId, Rig } from '../world/places';
 import type { Props } from '../world/props';
 import type { Stage } from '../world/stage';
+import type { Input } from './input';
 import type { Stamps } from './stamps';
 import { closeSheet, euro, setPlace, sheet } from './ui';
 
@@ -16,6 +17,7 @@ import { closeSheet, euro, setPlace, sheet } from './ui';
 
 export type HubCtx = {
   stage: Stage;
+  input: Input;
   rig: Rig;
   props: Props;
   sound: Sound;
@@ -67,6 +69,16 @@ export class Hub {
       nav.appendChild(b);
       this.els.set(s.id, b);
     });
+    // On phones not every corner fits the frame: a dock keeps all of them a thumb away.
+    const dock = $('[data-dock]');
+    SPOTS.forEach((s) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = s.main ? 'is-main' : '';
+      b.innerHTML = `<span class="it">${s.it}</span><small>${s.en}</small>`;
+      b.addEventListener('click', () => this.els.get(s.id)?.click());
+      dock.appendChild(b);
+    });
     c.stage.tick(() => this.update());
     // The dough balls in the box rise with the real clock.
     const rise = (): void => {
@@ -83,6 +95,11 @@ export class Hub {
   show(on: boolean): void {
     this.active = on;
     $('[data-spots]').classList.toggle('is-hidden', !on);
+    if (!on)
+      this.els.forEach((el) => {
+        el.style.opacity = '0';
+        el.style.pointerEvents = 'none';
+      });
   }
 
   private update(): void {
@@ -103,11 +120,50 @@ export class Hub {
     setPlace('La sala', 'The dining room');
     closeSheet();
     this.show(true);
+    $('[data-dock]').hidden = false;
     window.clearInterval(this.tickTimer);
+    // Drag (or swipe) to look around the room.
+    const look = this.c.rig.look;
+    let from = { x: 0, y: 0 };
+    this.c.input.set({
+      down: () => {
+        from = { x: look.x, y: look.y };
+        return true;
+      },
+      move: (p, s) => {
+        look.set(Math.max(-0.95, Math.min(0.95, from.x + (p.x - s.x) * 0.0042)), Math.max(-0.32, Math.min(0.32, from.y + (p.y - s.y) * 0.003)));
+        this.hideHint();
+      },
+    });
+    if (!this.hinted && innerWidth <= 760) this.showHint();
+  }
+
+  private hinted = false;
+  private hintEl: HTMLElement | null = null;
+
+  private showHint(): void {
+    this.hinted = true;
+    const el = document.createElement('p');
+    el.className = 'look-hint';
+    el.textContent = '← swipe to look around →';
+    document.body.appendChild(el);
+    this.hintEl = el;
+    setTimeout(() => this.hideHint(), 5000);
+  }
+
+  private hideHint(): void {
+    const el = this.hintEl;
+    if (!el) return;
+    this.hintEl = null;
+    el.style.opacity = '0';
+    setTimeout(() => el.remove(), 700);
   }
 
   leave(): void {
     this.show(false);
+    $('[data-dock]').hidden = true;
+    this.hideHint();
+    this.c.input.set(null);
     closeSheet();
     window.clearInterval(this.tickTimer);
   }

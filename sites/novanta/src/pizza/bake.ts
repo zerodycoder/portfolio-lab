@@ -16,7 +16,7 @@ import type { Pizza } from './pizza';
 
 export const OVEN_SPEED = 4;
 /** Fire position in oven space (relative to the pizza's centre on the floor), metres. */
-const FIRE = new THREE.Vector2(-0.26, -0.06);
+const FIRE = new THREE.Vector2(-0.36, -0.38).setLength(0.27);
 const SIGMA2 = 0.22 * 0.22;
 const BASE = 0.56 / 80;
 const FLAME = 1.3 / 80;

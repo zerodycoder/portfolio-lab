@@ -24,12 +24,14 @@ import { Bake } from './pizza/bake';
 import { loadRapier, Physics } from './pizza/physics';
 import { Pizza } from './pizza/pizza';
 import { PizzaBox } from './world/box';
+import { buildDetails } from './world/details';
 import { buildDoorstep, buildFacade } from './world/facade';
 import { easeInOut, easeOut, Puffs, tween } from './world/fx';
 import { buildOven, buildPeels } from './world/oven';
 import { Rig, type PlaceId } from './world/places';
 import { buildProps } from './world/props';
-import { buildRoom } from './world/room';
+import { loadEnv } from './world/pbr';
+import { BOARD_SPOT, buildRoom } from './world/room';
 import { Stage } from './world/stage';
 
 const base = import.meta.env.BASE_URL;
@@ -63,25 +65,33 @@ async function boot(): Promise<void> {
 
   // ————— Loading (the gate shows real progress) —————
   let pizza!: Pizza;
-  let oven!: ReturnType<typeof buildOven>;
+  let oven!: Awaited<ReturnType<typeof buildOven>>;
   let props!: Awaited<ReturnType<typeof buildProps>>;
-  let facade!: ReturnType<typeof buildFacade>;
+  let facade!: Awaited<ReturnType<typeof buildFacade>>;
+  let details!: Awaited<ReturnType<typeof buildDetails>>;
   const rapier = loadRapier();
   const world = (async () => {
     await document.fonts.ready;
     say('Sweeping the floor…');
+    const env = await loadEnv(stage.renderer, base);
+    if (env) stage.setEnvironment(env, 0.22);
     const room = await buildRoom(base);
     stage.scene.add(room.group);
     say('Lighting the oven…');
-    oven = buildOven('NOVANTA');
+    oven = await buildOven('NOVANTA', base);
     stage.scene.add(oven.group);
-    props = await buildProps(base);
+    props = await buildProps(base, stamps.canvas);
+    stamps.onDraw = () => (props.diplomaTex.needsUpdate = true);
+    details = await buildDetails(base, [new THREE.Vector3(-1.9, 0, 1.4), new THREE.Vector3(-0.4, 0, 1.6)]);
+    stage.scene.add(details.group);
     stage.scene.add(props.group);
-    facade = buildFacade();
+    facade = await buildFacade(base);
     stage.scene.add(facade.group);
     stage.scene.add(buildDoorstep().group);
     say('Tearing the mozzarella…');
     pizza = await Pizza.create(base);
+    // The dough ball waits on the work board until someone starts a pizza.
+    pizza.group.position.copy(BOARD_SPOT);
     await pizza.preload();
     stage.scene.add(pizza.group);
     rig.jump('strada');
@@ -104,9 +114,14 @@ async function boot(): Promise<void> {
       if (withSound) sound.setFire(0.15);
       sound.shutter(1.1);
       await tween(1.1, (k) => facade.setOpen(pulled + (1 - pulled) * k), easeOut);
+      // Walk in through the door. The room becomes interactive only once the camera has arrived, so nothing the
+      // visitor taps can be overridden by the end of this move.
+      const wanted = location.hash.slice(1);
+      if (!wanted || wanted === 'strada' || wanted === 'sala') {
+        await rig.go('soglia', 1.6, 0.05);
+        await rig.go('sala', 1.8, 0.05);
+      }
       reveal();
-      await rig.go('soglia', 1.6, 0.05);
-      await rig.go('sala', 1.8, 0.05);
     },
   });
   await world;
@@ -161,6 +176,7 @@ async function boot(): Promise<void> {
   });
   const hub = new Hub({
     stage,
+    input,
     rig,
     props,
     sound,
@@ -182,6 +198,7 @@ async function boot(): Promise<void> {
     pizza.update(dt);
     oven.update(dt, t);
     facade.update(dt, t);
+    details.update(dt, t);
     pizza.surface.uTime.value = t;
     rig.update(dt);
     steam.update(dt);
@@ -211,6 +228,10 @@ async function boot(): Promise<void> {
 
   // ————— Routing —————
   let route: Route = 'strada';
+  // Every place has a way back to the dining room: the back button in the bar (and the logo).
+  const backBtn = $('[data-back]');
+  backBtn.addEventListener('click', () => go('sala'));
+  $('[data-go]').addEventListener('click', () => go('sala'));
 
   const leaveCurrent = (next: Route): void => {
     const wasKitchen = STEP_IDS.includes(route);
@@ -234,6 +255,7 @@ async function boot(): Promise<void> {
     if (STEP_IDS.includes(next) && !kitchen.started) next = 'impasto';
     leaveCurrent(next);
     route = next;
+    backBtn.hidden = next === 'sala' || next === 'strada';
     if (push && location.hash.slice(1) !== next) history.pushState({ place: next }, '', `#${next}`);
     const sheetInsets = (): void => {
       const phone = innerWidth <= 760;
@@ -271,23 +293,54 @@ async function boot(): Promise<void> {
 
   addEventListener('popstate', (e) => {
     const r = ((e.state as { place?: string } | null)?.place ?? location.hash.slice(1)) as Route;
-    if (route === 'viaggio' && r !== 'casa') return history.pushState({ place: 'viaggio' }, '', '#viaggio');
     go(r || 'sala', false);
   });
 
   // ————— Sending and arriving —————
 
   const send = async (info: SendInfo): Promise<void> => {
+    if (info.name) stamps.setName(info.name);
     store.set('pizza', { pizza: pizza.save(), report: info.report, name: info.name, order: info.order });
     const ride = delivery.start(info.name, info.to);
     sound.beep();
     await wait(300);
     leaveCurrent('viaggio');
     route = 'viaggio';
+    backBtn.hidden = false;
     history.pushState({ place: 'viaggio' }, '', '#viaggio');
     setPlace('In viaggio', 'On the way');
     delivery.show(ride);
   };
+
+  // The ride goes on while the visitor is back in the shop: a pill in the bar counts down, the doorbell rings.
+  delivery.onLeave = () => go('sala');
+  const ridePill = $('[data-ride-pill]');
+  let rang = false;
+  ridePill.addEventListener('click', () => {
+    const ride = Delivery.saved();
+    if (!ride) return;
+    go(Date.now() - ride.startedAt >= ride.duration ? 'casa' : 'viaggio');
+  });
+  setInterval(() => {
+    const ride = Delivery.saved();
+    const away = !!ride && route !== 'viaggio' && route !== 'casa' && route !== 'strada';
+    ridePill.hidden = !away;
+    if (!ride) {
+      rang = false;
+      return;
+    }
+    if (!away) return;
+    const left = Math.max(0, Math.ceil((ride.duration - (Date.now() - ride.startedAt)) / 1000));
+    const here = left === 0;
+    ridePill.classList.toggle('is-here', here);
+    $('[data-ride-eta]').textContent = here ? 'Alla porta!' : `0:${String(left).padStart(2, '0')}`;
+    ridePill.setAttribute('aria-label', here ? 'Your pizza is at the door' : `Your pizza arrives in ${left} seconds`);
+    if (here && !rang) {
+      rang = true;
+      sound.doorbell();
+      note('Ding dong! È arrivata.', 'Your pizza is at the door: tap the scooter up top.', 4200);
+    }
+  }, 1000);
 
   delivery.onArrive = () => {
     route = 'casa';
@@ -305,8 +358,9 @@ async function boot(): Promise<void> {
       new Bake(pizza).applyAll();
     }
     kitchen.hide();
+    backBtn.hidden = false;
     setPlace('Alla porta', 'At your door');
-    const spot = new THREE.Vector3(30, 0.018, 0.1);
+    const spot = new THREE.Vector3(30, 0.018, -0.02);
     arrivalBox.group.visible = true;
     arrivalBox.group.position.copy(spot);
     arrivalBox.group.rotation.y = 0.15;
@@ -348,8 +402,8 @@ async function boot(): Promise<void> {
         <h2 class="sheet__title"><span class="it">${pizza.name}</span></h2>
         <p class="sheet__lead">The very pizza you stretched, dressed and baked: the same ${r?.spots ?? 0} leopard spots, the same melted cheese, the same cuts.</p>
         ${r ? `<div class="report"><div class="report__grade">${r.grade}</div><div>Baked in ${r.seconds} s at 485 °C</div></div>` : ''}
-        <p class="fineprint">Stamps on your card: ${stamps.count}/10.</p>
-        <div class="panel__row" style="margin-top:14px"><button class="btn btn--tomato" type="button" data-again>Fanne un’altra · Make another</button><button class="btn btn--paper" type="button" data-shop>Torna in pizzeria · Back to the shop</button><button class="btn btn--paper" type="button" data-card>La tessera</button></div>`;
+        <p class="fineprint">Seals on your diploma: ${stamps.count}/10.</p>
+        <div class="panel__row" style="margin-top:14px"><button class="btn btn--tomato" type="button" data-again>Fanne un’altra · Make another</button><button class="btn btn--paper" type="button" data-shop>Torna in pizzeria · Back to the shop</button><button class="btn btn--paper" type="button" data-card>Il diploma</button></div>`;
       el.querySelector('[data-again]')?.addEventListener('click', () => {
         kitchen.fresh();
         go('impasto');

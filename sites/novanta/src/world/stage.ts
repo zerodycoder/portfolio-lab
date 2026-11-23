@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
@@ -11,7 +12,7 @@ const FinishShader = {
   uniforms: {
     tDiffuse: { value: null as THREE.Texture | null },
     uTime: { value: 0 },
-    uVignette: { value: 0.32 },
+    uVignette: { value: 0.42 },
     uGrain: { value: 0.035 },
     uWarm: { value: 0.0 },
     uFade: { value: 0.0 },
@@ -66,6 +67,8 @@ export class Stage {
   readonly composer: EffectComposer;
   readonly bloom: UnrealBloomPass;
   readonly finish: ShaderPass;
+  /** Ground-truth ambient occlusion: contact shadows in every corner, joint and under every object (desktop). */
+  readonly ao: GTAOPass | null = null;
   readonly canvas: HTMLCanvasElement;
   readonly mobile: boolean;
   width = 1;
@@ -100,6 +103,14 @@ export class Stage {
     const target = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: this.mobile ? 0 : 4 });
     this.composer = new EffectComposer(this.renderer, target);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
+    if (!this.mobile) {
+      const ao = new GTAOPass(this.scene, this.camera, 512, 512);
+      ao.updateGtaoMaterial({ radius: 0.35, distanceExponent: 1.6, thickness: 1.2, scale: 1.1, samples: 16 });
+      ao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 16 });
+      ao.blendIntensity = 0.9;
+      this.composer.addPass(ao);
+      this.ao = ao;
+    }
     this.bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.35, 0.5, 2.2);
     this.composer.addPass(this.bloom);
     this.composer.addPass(new OutputPass());
@@ -108,6 +119,12 @@ export class Stage {
 
     this.resize();
     new ResizeObserver(() => this.resize()).observe(canvas);
+  }
+
+  /** Swaps the room-environment reflections for a real HDR environment. */
+  setEnvironment(env: THREE.Texture, intensity: number): void {
+    this.scene.environment = env;
+    this.scene.environmentIntensity = intensity;
   }
 
   onResize(fn: () => void): void {

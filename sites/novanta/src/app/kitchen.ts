@@ -136,9 +136,37 @@ export class Kitchen {
   // ————— Layout —————
 
   private renderSteps(): void {
-    $('[data-steps]').innerHTML = STEPS.map(
-      (s, i) => `<li class="${s.id === this.step ? 'is-now' : ''} ${this.done.has(s.id) ? 'is-done' : ''}"><b>${i + 1}</b><span class="it">${s.it}</span></li>`,
-    ).join('');
+    const el = $('[data-steps]');
+    el.innerHTML = STEPS.map((s, i) => {
+      const can = this.canGoBack(s.id);
+      const inner = `<b>${i + 1}</b><span class="it">${s.it}</span>`;
+      return `<li class="${s.id === this.step ? 'is-now' : ''} ${this.done.has(s.id) ? 'is-done' : ''}">${can ? `<button type="button" data-step-go="${s.id}" aria-label="Back to ${s.en}">${inner}</button>` : inner}</li>`;
+    }).join('');
+    el.querySelectorAll<HTMLButtonElement>('[data-step-go]').forEach((b) => b.addEventListener('click', () => this.back(b.dataset.stepGo as StepId)));
+  }
+
+  /** Earlier steps can be revisited, but nothing before the oven once the pizza has been baked. */
+  private canGoBack(to: StepId): boolean {
+    const ids = STEPS.map((s) => s.id);
+    if (!this.step || ids.indexOf(to) >= ids.indexOf(this.step)) return false;
+    if (!this.done.has(to)) return false;
+    if (this.report && ids.indexOf(to) < ids.indexOf('forno')) return false;
+    return true;
+  }
+
+  /** Where "back" leads from here: the previous step if it can be revisited, otherwise the dining room. */
+  private backTarget(): StepId | 'sala' {
+    const ids = STEPS.map((s) => s.id);
+    const i = this.step ? ids.indexOf(this.step) : 0;
+    const prev = ids[i - 1];
+    return prev && this.canGoBack(prev) ? prev : 'sala';
+  }
+
+  back(to: StepId | 'sala'): void {
+    this.c.sound.click();
+    if (to === 'sala') return this.c.onExit();
+    void this.go(to);
+    history.pushState({ place: to }, '', `#${to}`);
   }
 
   /** The 3D view is framed in whatever the panel, the ticket and the bars leave free. */
@@ -154,6 +182,28 @@ export class Kitchen {
   private panel(content: string): void {
     this.panelEl.innerHTML = content;
     this.panelEl.classList.remove('is-out');
+    const foot = this.panelEl.querySelector('.panel__foot');
+    if (foot) {
+      // Helpers that sat on the left of the foot ("do it for me", hints) move up a row; back takes their place.
+      const primary = foot.querySelector('.btn--tomato');
+      const others = [...foot.children].filter((c) => c !== primary && (c.textContent ?? '').trim());
+      if (others.length) {
+        const row = document.createElement('div');
+        row.className = 'panel__tools';
+        others.forEach((o) => row.appendChild(o));
+        foot.before(row);
+      }
+      [...foot.children].filter((c) => c !== primary).forEach((c) => c.remove());
+      const target = this.backTarget();
+      const label = target === 'sala' ? ['Sala', 'Dining room'] : [STEPS.find((s) => s.id === target)!.it, 'Back'];
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'btn btn--paper panel__back';
+      b.setAttribute('aria-label', target === 'sala' ? 'Back to the dining room' : `Back to ${label[0]}`);
+      b.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg><span><span class="it">${label[0]}</span><small>${label[1]}</small></span>`;
+      b.addEventListener('click', () => this.back(target));
+      foot.prepend(b);
+    }
     requestAnimationFrame(() => this.layout());
   }
 
@@ -217,6 +267,7 @@ export class Kitchen {
     this.step = step;
     this.renderSteps();
     $('[data-kitchen]').hidden = false;
+    $('[data-kitchen]').dataset.step = step;
     const s = STEPS.find((x) => x.id === step)!;
     setPlace(s.it, s.en);
     clearNotes();
@@ -242,9 +293,23 @@ export class Kitchen {
     this.ladle.visible = false;
     this.wheel.visible = false;
     $('[data-bake]').hidden = true;
+    // A bake left half-way stops (coming back slides the pizza in again); the fire calms down.
+    this.bake.running = false;
+    this.bake.boostTarget = 1;
+    this.c.oven.fire.target = 1;
+    this.c.sound.setSizzle(0);
+    this.c.sound.setFire(0.25);
+    this.c.peels.peel.visible = false;
+    this.c.peels.palino.visible = false;
     // Leaving mid-bake (Back) must give the oven its front again, including a cutaway that is still pending.
     clearTimeout(this.cutawayTimer);
     this.c.oven.setCutaway(false);
+    if (this.slicer.lifting) void this.slicer.release();
+    // Toppings still tumbling are set where they are: the physics world only lives inside the toppings step.
+    if (this.physics?.count) {
+      this.physics.freeze();
+      this.pizza.syncPieceMatrices();
+    }
   }
 
   hide(): void {
@@ -272,6 +337,8 @@ export class Kitchen {
 
   private async impasto(): Promise<void> {
     const p = this.pizza;
+    const entryR = p.radius;
+    const entryBase = p.shape.base;
     if (p.phase === 'ball' && p.press === 0 && !p.pieces.length) {
       this.fresh();
       this.step = 'impasto';
@@ -295,10 +362,12 @@ export class Kitchen {
           <h2 class="panel__title"><span class="it">Stendi</span> the dough</h2>
           <p class="panel__lead">${isPhone() ? 'Pinch it wider with two fingers, or drag outwards from the middle.' : 'Drag outwards from the middle to stretch it; drag an edge to pull just that side.'} Push the air to the rim: that’s the cornicione.</p>
           <p class="readout" data-cm>${cm} cm<small>${ok ? size.it : 'keep going'}</small></p>
-          <div class="sizes">${SIZES.map((s) => `<span class="${ok && s.cm === size.cm ? 'is-on' : ''}">${s.cm} cm · ${s.it}</span>`).join('')}</div>
-          <div class="panel__foot"><button class="btn btn--paper btn--small" type="button" data-auto>Stendila tu · Stretch it for me</button><button class="btn btn--tomato" type="button" data-next ${ok ? '' : 'disabled'}>Avanti →</button></div>`);
+          <p class="hint" style="margin:10px 0 6px">Or let us stretch it to a size:</p>
+          <div class="seg sizes-pick">${SIZES.map((s) => `<button type="button" data-size="${s.radius}" class="${ok && s.cm === size.cm ? 'is-on' : ''}"><span class="it">${s.it}</span>${s.cm} cm</button>`).join('')}</div>
+          <div class="panel__foot"><span class="hint">${ok ? 'Round and even? Then on.' : 'At least 26 cm'}</span><button class="btn btn--tomato" type="button" data-next ${ok ? '' : 'disabled'}>Avanti →</button></div>`);
       }
       this.q('[data-auto]')?.addEventListener('click', () => void auto());
+      this.panelEl.querySelectorAll<HTMLButtonElement>('[data-size]').forEach((b) => b.addEventListener('click', () => void auto(Number(b.dataset.size))));
       this.q('[data-next]')?.addEventListener('click', () => finish());
     };
     const press = async (): Promise<void> => {
@@ -317,17 +386,35 @@ export class Kitchen {
       if (to >= 1) this.sayOnce('stretch', 'Brava! Ora stendila.', 'Good. Now stretch it.');
       render();
     };
-    const auto = async (): Promise<void> => {
+    let busy = false;
+    /** Presses (if needed) and stretches the dough to a size, even and round: a smaller size squeezes it back. */
+    const auto = async (to = SIZES[1].radius + 0.002): Promise<void> => {
+      if (busy) return;
+      busy = true;
       while (p.phase === 'ball' || p.phase === 'press') await press();
       const from = p.radius;
+      const radii = Float32Array.from(p.ring.r);
       p.working = true;
-      await tween(1.4, (k) => p.ring.pullAll(from + (0.152 - from) * k), easeInOut);
-      p.ring.release();
-      await wait(500);
+      this.c.sound.puff();
+      this.flour.burst(p.group.position.clone().setY(p.group.position.y + 0.01), 10, 0.1, 0.08, 0.05, 1.1);
+      // Ease every outline point from where it is to the target: an uneven stretch comes out round.
+      await tween(1.2, (k) => {
+        for (let i = 0; i < radii.length; i++) p.ring.r[i] = radii[i] + (to - radii[i]) * k;
+        p.ring.rest.set(p.ring.r);
+        p.markDirty();
+      }, easeInOut);
+      p.ring.settle(to);
       p.working = false;
+      p.markDirty();
+      if (Math.abs(from - to) < 0.004) note('Già fatto: tonda e pari.', 'Already there: round and even.', 2200);
+      busy = false;
       render();
     };
     let mode: 'none' | 'all' | 'edge' = 'none';
+    // Where the drag started (pizza space distance from the centre) and the dough's size then.
+    let r0 = 0;
+    let R0 = 0;
+    let th0 = 0;
     let pinchFrom = 0;
     let lastRender = 0;
     const live = (): void => {
@@ -347,6 +434,8 @@ export class Kitchen {
       if (p.ring.roundness > 0.8 && p.radius >= 0.145) this.c.stamps.give('stretch');
       p.phase = 'done';
       p.markDirty();
+      p.update(0);
+      if ((p.pieces.length || p.sauce) && Math.abs(p.radius / entryR - 1) > 0.01) p.rescaleDressing(p.radius / entryR, p.shape.base - entryBase);
       this.next('condimenti');
     };
     this.c.input.set({
@@ -357,6 +446,9 @@ export class Kitchen {
         const r = Math.hypot(l.x, l.z);
         if (r > p.radius + 0.06) return false;
         mode = r > p.radius * 0.7 ? 'edge' : 'all';
+        r0 = r;
+        th0 = Math.atan2(l.z, l.x);
+        R0 = mode === 'edge' ? p.outlineAt(th0) : p.radius;
         p.working = true;
         return true;
       },
@@ -369,9 +461,10 @@ export class Kitchen {
       move: (pt) => {
         const l = this.onPizza(pt);
         if (!l) return;
-        const r = Math.hypot(l.x, l.z);
-        if (mode === 'edge') p.ring.pull(Math.atan2(l.z, l.x), r);
-        else if (mode === 'all') p.ring.pullAll(Math.max(p.radius, r));
+        // The stretch follows how far the finger has travelled outwards, not where it is: any outward drag works.
+        const out = Math.hypot(l.x, l.z) - r0;
+        if (mode === 'edge') p.ring.pull(th0, Math.max(R0, R0 + out));
+        else if (mode === 'all') p.ring.pullAll(Math.max(R0, R0 + out * 0.8));
         live();
       },
       up: () => {
@@ -403,6 +496,9 @@ export class Kitchen {
 
   private async condimenti(): Promise<void> {
     const p = this.pizza;
+    p.group.position.copy(BOARD_SPOT);
+    p.group.rotation.set(0, 0, 0);
+    this.box.group.visible = false;
     p.phase = 'done';
     p.update(0);
     this.c.rig.go('banco', 1);
@@ -649,6 +745,15 @@ export class Kitchen {
 
   private async forno(): Promise<void> {
     const p = this.pizza;
+    if (this.report) {
+      p.group.position.copy(BOARD_SPOT);
+      p.group.rotation.y = this.bake.angle;
+      this.c.oven.setCutaway(false);
+      void this.c.rig.go('banco', 1);
+      this.steamOn = true;
+      this.showReport();
+      return;
+    }
     const { peel, palino } = this.c.peels;
     const oven = this.c.oven;
     const bake = this.bake;
@@ -665,10 +770,24 @@ export class Kitchen {
     const mouth = new THREE.Vector3(OVEN.floor.x + 0.06, OVEN.floor.y + 0.03, OVEN.mouthZ + 0.32);
     peel.visible = true;
     peel.rotation.set(0, 0, 0);
-    peel.position.copy(start).add(new THREE.Vector3(0, 0.002, 0.45));
+    // The blade is ~1 cm thick (its top is 0.0105 above the peel's origin). It slides over the board and the pizza
+    // rides up onto it, so the blade never shows through the thin middle of the dough.
+    const BLADE = 0.0105;
+    const ride = BLADE + 0.0025;
+    peel.position.copy(start).add(new THREE.Vector3(0, 0.0025, 0.45));
     this.c.sound.scrape();
-    await tween(0.5, (k) => peel.position.set(start.x, start.y + 0.001, start.z + 0.45 * (1 - k)), easeOut);
-    const lift = 0.014;
+    await tween(0.55, (k) => {
+      if (gone()) return;
+      const z = 0.45 * (1 - k);
+      peel.position.set(start.x, start.y + 0.0025, start.z + z);
+      // The blade's leading edge (0.2 m ahead of its centre) reaches the rim: the pizza climbs on before the blade
+      // gets under it, over the last 2 cm of the approach.
+      const lead = z - 0.2;
+      const t = Math.min(1, Math.max(0, (p.radius + 0.02 - lead) / 0.02));
+      p.group.position.y = start.y + ride * t * t * (3 - 2 * t);
+    }, easeOut);
+    if (gone()) return;
+    const lift = ride;
     const path = (k: number): THREE.Vector3 => {
       const v = start.clone().lerp(mouth, k);
       v.y += Math.sin(k * Math.PI) * 0.12 + lift;
@@ -677,10 +796,12 @@ export class Kitchen {
     void this.c.rig.goShot({ target: mouth.clone().add(new THREE.Vector3(-0.02, 0.05, -0.12)), dir: new THREE.Vector3(0.3, -0.42, -0.86), radius: 0.42, fov: 46 }, 1.7);
     this.c.sound.whoosh();
     await tween(1.6, (k) => {
+      if (gone()) return;
       const v = path(k);
       p.group.position.copy(v);
-      peel.position.copy(v).add(new THREE.Vector3(0, -0.012, 0));
+      peel.position.copy(v).add(new THREE.Vector3(0, -BLADE - 0.0005, 0));
     });
+    if (gone()) return;
     this.c.sound.setFire(0.8);
     // Wait for the flick (or the button).
     await new Promise<void>((resolve) => {
@@ -829,8 +950,8 @@ export class Kitchen {
         palino.visible = Math.abs(turnAnim) > 0.01;
       }
       p.group.rotation.y = bake.angle;
-      // The turning peel slides in under the front of the pizza.
-      palino.position.copy(p.group.position).add(new THREE.Vector3(0.02, -0.0012, 0.09));
+      // The turning peel slides in under the front of the pizza: only its handle shows.
+      palino.position.copy(p.group.position).add(new THREE.Vector3(0.01, 0.0008, p.radius * 0.5));
       const t = bake.time;
       this.c.sound.setSizzle(Math.min(1, t / 25));
       secs.textContent = String(Math.round(t));
@@ -904,7 +1025,9 @@ export class Kitchen {
     g.font = '22px system-ui';
     g.textAlign = 'center';
     g.textBaseline = 'middle';
-    g.fillText('🔥', cx - W * 0.33, cx);
+    // The fire burns back-left in the oven (see bake.ts): the icon sits there on the ring.
+    const fa = Math.atan2(-0.38, -0.36);
+    g.fillText('🔥', cx + Math.cos(fa) * W * 0.33, cx + Math.sin(fa) * W * 0.33);
     void OVEN_SPEED;
   }
 
@@ -940,6 +1063,8 @@ export class Kitchen {
 
   private async taglio(): Promise<void> {
     const p = this.pizza;
+    this.box.group.visible = false;
+    p.group.position.copy(BOARD_SPOT);
     this.c.rig.go('banco', 1);
     this.steamOn = true;
     if (this.classic) void this.applyClassicPost();
@@ -1214,16 +1339,25 @@ export class Kitchen {
     }
     p.working = true;
     await tween(0.9, (k) => p.ring.pullAll(0.1 + 0.052 * k), easeInOut);
-    p.ring.release();
-    await wait(300);
+    p.ring.settle(0.152);
     p.working = false;
+    p.markDirty();
     p.phase = 'done';
     p.update(0);
     p.sauce = cl.sauce;
+    // Ladled on in a tight spiral: an even coat, like a pizzaiolo's. Each frame paints every step the spiral has
+    // advanced since the last one, so a slow phone gets the same coat as a fast laptop.
+    let painted = 0;
+    const turns = 6;
+    const steps = turns * 48;
     await tween(1.1, (k) => {
-      const a = k * Math.PI * 2 * 4;
-      const r = 0.01 + k * (p.radius - 0.034);
-      p.paintSauce(Math.cos(a) * r, Math.sin(a) * r, 0.026, 0.5);
+      const upto = Math.floor(k * steps);
+      for (; painted <= upto; painted++) {
+        const t = painted / steps;
+        const a = t * Math.PI * 2 * turns;
+        const r = 0.008 + t * (p.radius - 0.034);
+        p.paintSauce(Math.cos(a) * r, Math.sin(a) * r, 0.03, 0.5);
+      }
     }, (t) => t);
     this.physics = await this.c.physics();
     this.physics.setDough(p.doughGeo.geometry);

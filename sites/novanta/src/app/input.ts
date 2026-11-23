@@ -27,6 +27,8 @@ export class Input {
   private pinchStart = 0;
   private pinchAngle = 0;
   private dragging = false;
+  /** A single pointer is down (whether or not the handler took it as a drag): taps come from this. */
+  private pressed = false;
   private pinching = false;
 
   constructor(private readonly el: HTMLElement) {
@@ -40,6 +42,7 @@ export class Input {
   set(h: Gesture | null): void {
     this.handler = h;
     this.pointers.clear();
+    this.pressed = false;
     this.dragging = false;
     this.pinching = false;
   }
@@ -73,6 +76,7 @@ export class Input {
     this.lastT = performance.now();
     this.vel = { x: 0, y: 0 };
     this.moved = 0;
+    this.pressed = true;
     this.dragging = this.handler.down?.(p, e) !== false;
   }
 
@@ -95,7 +99,12 @@ export class Input {
       this.handler.pinch?.(d / Math.max(1, this.pinchStart), dr, { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
       return;
     }
-    if (!this.dragging) return;
+    if (!this.dragging) {
+      // Not a drag, but still count the travel so a wobbly tap is told apart from a swipe.
+      this.moved += Math.hypot(p.x - this.last.x, p.y - this.last.y);
+      this.last = p;
+      return;
+    }
     const now = performance.now();
     const dt = Math.max(1, now - this.lastT);
     this.vel = { x: ((p.x - this.last.x) / dt) * 1000, y: ((p.y - this.last.y) / dt) * 1000 };
@@ -115,12 +124,15 @@ export class Input {
       }
       return;
     }
+    const p = this.pt(e);
+    const wasPressed = this.pressed;
+    this.pressed = false;
+    // A tap is a press that barely moved, whether or not the handler wanted it as a drag.
+    if (wasPressed && this.moved < 8) this.handler.tap?.(p);
     if (!this.dragging) return;
     this.dragging = false;
-    const p = this.pt(e);
     // A stale velocity (the pointer stopped before lifting) is not a flick.
     const v = performance.now() - this.lastT > 90 ? { x: 0, y: 0 } : this.vel;
-    if (this.moved < 8) this.handler.tap?.(p);
     this.handler.up?.(p, this.start, v, e);
   }
 }

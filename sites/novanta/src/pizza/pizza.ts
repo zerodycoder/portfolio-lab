@@ -299,6 +299,29 @@ export class Pizza {
     });
   }
 
+  /** Scales the toppings and the painted layers about the centre (the dough was stretched or squeezed after). */
+  rescaleDressing(k: number, dy: number): void {
+    this.pieces.forEach((p) => {
+      p.mesh.position.x *= k;
+      p.mesh.position.z *= k;
+      p.mesh.position.y += dy;
+    });
+    this.syncPieceMatrices();
+    (['layer', 'melt', 'drizzle', 'spots'] as const).forEach((w) => {
+      const { c, g } = this.layers[w];
+      const copy = document.createElement('canvas');
+      copy.width = c.width;
+      copy.height = c.height;
+      copy.getContext('2d')!.drawImage(c, 0, 0);
+      g.globalCompositeOperation = 'source-over';
+      g.fillStyle = '#000';
+      g.fillRect(0, 0, c.width, c.height);
+      const s = c.width * k;
+      g.drawImage(copy, (c.width - s) / 2, (c.height - s) / 2, s, s);
+      this.layers.tex[w].needsUpdate = true;
+    });
+  }
+
   /** Paints a soft contact shadow under every piece (call once they have settled). */
   groundPieces(only?: Piece[]): void {
     (only ?? this.pieces).forEach((p) => {
@@ -402,6 +425,7 @@ export class Pizza {
       cheese: this.cheese,
       drizzles: [...this.drizzles],
       name: this.name,
+      cuts: this.surface.uCuts.value.slice(0, this.surface.uCutCount.value),
       pieces: this.pieces
         .filter((p) => !p.lost)
         .map<SavedPiece>((p) => ({
@@ -431,6 +455,9 @@ export class Pizza {
     this.cheese = o.cheese as string | null;
     this.drizzles = new Set(o.drizzles as DrizzleId[]);
     this.name = (o.name as string) ?? '';
+    const cuts = (o.cuts as number[] | undefined) ?? [];
+    this.surface.uCutCount.value = cuts.length;
+    this.surface.uCuts.value = [...cuts, ...new Array(8 - cuts.length).fill(0)];
     await this.layers.restore(o.layers as Record<string, string>);
     (o.pieces as SavedPiece[]).forEach((sp) => {
       const kind = KIND[sp.k];

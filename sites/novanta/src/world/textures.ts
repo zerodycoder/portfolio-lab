@@ -306,6 +306,27 @@ export function sootBrick(s = 512): HTMLCanvasElement {
   return c;
 }
 
+/** Old terracotta bricks with lime mortar, tileable (the oven's base). */
+export function terracottaBrick(s = 512): HTMLCanvasElement {
+  const { c, g } = canvas(s);
+  const bw = s / 4;
+  const bh = s / 10;
+  paint(g, s, s, (x, y) => {
+    const row = Math.floor(y / bh);
+    const off = row % 2 ? bw / 2 : 0;
+    const bx = (x + off) % bw;
+    const by = y % bh;
+    const mortar = bx < 5 || by < 5;
+    const id = Math.floor((x + off) / bw) + row * 7;
+    const n = fbmTile(x / 32, y / 32, s / 32, 4, 6);
+    if (mortar) return [190 + n * 20, 176 + n * 18, 150 + n * 14];
+    const tone = hash2(id, row, 11) * 34 - 17;
+    const v = n * 30;
+    return [160 + tone + v, 78 + tone * 0.6 + v * 0.6, 52 + tone * 0.4 + v * 0.4];
+  });
+  return c;
+}
+
 /** The oven's cooking floor: biscotto stone, pale, with ash and flour scorch. */
 export function ovenFloor(s = 1024): HTMLCanvasElement {
   const { c, g } = canvas(s);
@@ -468,4 +489,75 @@ export function stucco(s = 512, hue: [number, number, number] = [214, 160, 112])
 /** A plain-tinted linear texture helper for roughness maps. */
 export function roughFrom(c: HTMLCanvasElement, repeat?: [number, number]): THREE.Texture {
   return dataTex(c, repeat);
+}
+
+/**
+ * Relief for a grid of glazed tiles (n × n tiles of `tile` px): a recessed grout line, a soft bevel up to the glaze,
+ * a slight random tilt per tile and a faint ripple in the glaze. Returns an OpenGL normal map and a roughness map
+ * (glaze shiny, grout matte), both tileable, aligned with majolica() / plainTiles() of the same layout.
+ */
+export function tileRelief(tile = 128, n = 4, grout = 3, bevel = 7): { normal: HTMLCanvasElement; rough: HTMLCanvasElement } {
+  const s = tile * n;
+  const height = new Float32Array(s * s);
+  const tilt: [number, number][] = [];
+  for (let i = 0; i < n * n; i++) tilt.push([(hash2(i, 1, 7) - 0.5) * 0.9, (hash2(i, 2, 7) - 0.5) * 0.9]);
+  for (let y = 0; y < s; y++)
+    for (let x = 0; x < s; x++) {
+      const tx = x % tile;
+      const ty = y % tile;
+      const id = Math.floor(y / tile) * n + Math.floor(x / tile);
+      const edge = Math.min(tx, ty, tile - 1 - tx, tile - 1 - ty);
+      let h = edge < grout ? 0 : Math.min(1, (edge - grout) / bevel);
+      h = h * h * (3 - 2 * h);
+      const [ax, ay] = tilt[id];
+      const ripple = (fbmTile(x / 24, y / 24, s / 24, 2, 5) - 0.5) * 0.12;
+      height[y * s + x] = h + (edge >= grout ? ((tx / tile - 0.5) * ax + (ty / tile - 0.5) * ay) * 0.25 + ripple : 0);
+    }
+  const normal = canvas(s);
+  const rough = canvas(s);
+  const ni = normal.g.createImageData(s, s);
+  const ri = rough.g.createImageData(s, s);
+  const at = (x: number, y: number): number => height[((y + s) % s) * s + ((x + s) % s)];
+  const strength = 2.2;
+  for (let y = 0; y < s; y++)
+    for (let x = 0; x < s; x++) {
+      const dx = (at(x + 1, y) - at(x - 1, y)) * strength;
+      const dy = (at(x, y + 1) - at(x, y - 1)) * strength;
+      const len = Math.hypot(dx, dy, 1);
+      const i = (y * s + x) * 4;
+      // OpenGL convention: +y up; canvas rows grow downwards, so the y slope flips.
+      ni.data[i] = ((-dx / len) * 0.5 + 0.5) * 255;
+      ni.data[i + 1] = ((dy / len) * 0.5 + 0.5) * 255;
+      ni.data[i + 2] = ((1 / len) * 0.5 + 0.5) * 255;
+      ni.data[i + 3] = 255;
+      const tx = x % tile;
+      const ty = y % tile;
+      const edge = Math.min(tx, ty, tile - 1 - tx, tile - 1 - ty);
+      const r = edge < grout ? 235 : 40 + fbmTile(x / 40, y / 40, s / 40, 2, 9) * 50;
+      ri.data[i] = r;
+      ri.data[i + 1] = r;
+      ri.data[i + 2] = r;
+      ri.data[i + 3] = 255;
+    }
+  normal.g.putImageData(ni, 0, 0);
+  rough.g.putImageData(ri, 0, 0);
+  return { normal: normal.c, rough: rough.c };
+}
+
+/** Plain glazed tiles, each a slightly different shade (the dark green skirting of the side walls). */
+export function plainTiles(rgb: [number, number, number], tile = 128, n = 4, grout = 3): HTMLCanvasElement {
+  const s = tile * n;
+  const { c, g } = canvas(s);
+  paint(g, s, s, (x, y) => {
+    const tx = x % tile;
+    const ty = y % tile;
+    const edge = Math.min(tx, ty, tile - 1 - tx, tile - 1 - ty);
+    if (edge < grout) return [176, 168, 152];
+    const id = Math.floor(y / tile) * n + Math.floor(x / tile);
+    const k = 0.86 + hash2(id, 3, 1) * 0.22 + (fbmTile(x / 32, y / 32, s / 32, 3, 4) - 0.5) * 0.1;
+    // Glaze pools darker towards the edges.
+    const pool = edge < grout + 10 ? 0.9 : 1;
+    return [rgb[0] * k * pool, rgb[1] * k * pool, rgb[2] * k * pool];
+  });
+  return c;
 }

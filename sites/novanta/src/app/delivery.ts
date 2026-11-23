@@ -16,8 +16,6 @@ type Edge = [number, number];
 
 export type Ride = { startedAt: number; duration: number; seed: number; name: string; to: string };
 
-const W = 1000;
-const H = 1000;
 const STEPS = [
   ['Sfornata', 'Baked'],
   ['Inscatolata', 'Boxed'],
@@ -31,15 +29,17 @@ const DEST: Record<string, [string, string]> = {
   moon: ['Sulla luna', 'the moon (via Naples)'],
 };
 
-function buildCity(seed: number): { nodes: Node[]; edges: Edge[]; start: number; end: number; svg: string } {
+function buildCity(seed: number, W: number, H: number): { nodes: Node[]; edges: Edge[]; start: number; end: number; svg: string } {
   const r = rng(seed);
-  const cols = 7;
-  const rows = 8;
+  const top = 150;
+  const sea = 230;
+  const cols = Math.max(5, Math.round((W - 180) / 135) + 1);
+  const rows = Math.max(5, Math.round((H - top - sea) / 115) + 1);
   const nodes: Node[] = [];
   for (let j = 0; j < rows; j++)
     for (let i = 0; i < cols; i++) {
-      const x = 90 + (i / (cols - 1)) * 820 + (r() - 0.5) * 60 + j * 6;
-      const y = 80 + (j / (rows - 1)) * 700 + (r() - 0.5) * 50;
+      const x = 90 + (i / (cols - 1)) * (W - 180) + (r() - 0.5) * 50 + j * 5;
+      const y = top + (j / (rows - 1)) * (H - top - sea) + (r() - 0.5) * 40;
       nodes.push({ x, y, id: nodes.length });
     }
   const edges: Edge[] = [];
@@ -50,15 +50,15 @@ function buildCity(seed: number): { nodes: Node[]; edges: Edge[]; start: number;
       if (j < rows - 1 && r() > 0.18) edges.push([id, id + cols]);
       if (i < cols - 1 && j < rows - 1 && r() > 0.9) edges.push([id, id + cols + 1]);
     }
+  const mid = Math.floor(cols / 2);
   const start = (rows - 1) * cols + 1;
-  const end = 1 * cols + cols - 2;
-  // Make sure the route exists: a guaranteed path up the middle.
-  for (let j = 0; j < rows - 1; j++) edges.push([j * cols + 3, (j + 1) * cols + 3]);
-  edges.push([start, start + 1], [start + 1, start + 2], [start + 2, start + 3]);
-  edges.push([end, end - 1], [end - 1, end - 2], [cols + 3, cols + 4]);
+  const end = cols + cols - 2;
+  // Via Toledo runs straight up the middle, the Lungomare along the sea, the Decumano across the top:
+  // the route always exists.
+  for (let j = 0; j < rows - 1; j++) edges.push([j * cols + mid, (j + 1) * cols + mid]);
+  for (let i = 0; i < cols - 1; i++) edges.push([(rows - 1) * cols + i, (rows - 1) * cols + i + 1], [cols + i, cols + i + 1]);
   const n = (i: number): Node => nodes[i];
   const streetPath = edges.map(([a, b]) => `M${n(a).x.toFixed(1)} ${n(a).y.toFixed(1)}L${n(b).x.toFixed(1)} ${n(b).y.toFixed(1)}`).join('');
-  // Blocks get a faint fill with a few building outlines.
   let blocks = '';
   for (let j = 0; j < rows - 1; j++)
     for (let i = 0; i < cols - 1; i++) {
@@ -66,28 +66,43 @@ function buildCity(seed: number): { nodes: Node[]; edges: Edge[]; start: number;
       const b = n(j * cols + i + 1);
       const c = n((j + 1) * cols + i + 1);
       const d = n((j + 1) * cols + i);
-      const inset = 12;
       const cx = (a.x + b.x + c.x + d.x) / 4;
       const cy = (a.y + b.y + c.y + d.y) / 4;
-      const pt = (p: Node): string => `${(p.x + (cx - p.x) * (inset / 80)).toFixed(1)},${(p.y + (cy - p.y) * (inset / 80)).toFixed(1)}`;
-      const park = (i === 4 && j === 4) || (i === 1 && j === 2);
+      const pt = (p: Node): string => `${(p.x + (cx - p.x) * 0.16).toFixed(1)},${(p.y + (cy - p.y) * 0.16).toFixed(1)}`;
+      const park = r() < 0.08;
       blocks += `<polygon points="${[a, b, c, d].map(pt).join(' ')}" fill="${park ? '#b9c99a' : r() > 0.5 ? '#e6d6b8' : '#ead9bc'}" stroke="#c9b48e" stroke-width="1.5"/>`;
       if (park) blocks += `<circle cx="${cx - 18}" cy="${cy - 8}" r="11" fill="#8fa86a"/><circle cx="${cx + 14}" cy="${cy + 10}" r="14" fill="#8fa86a"/><circle cx="${cx + 4}" cy="${cy - 22}" r="9" fill="#8fa86a"/>`;
+      else if (r() < 0.12) blocks += `<text x="${cx}" y="${cy + 6}" text-anchor="middle" font-size="18" opacity="0.55">⛪</text>`;
     }
+  // Street names, set along their streets.
+  const label = (a: Node, b: Node, text: string): string => {
+    const ang = (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
+    const up = ang > 90 || ang < -90 ? ang + 180 : ang;
+    return `<text transform="translate(${((a.x + b.x) / 2).toFixed(1)} ${((a.y + b.y) / 2).toFixed(1)}) rotate(${up.toFixed(1)})" dy="-10" text-anchor="middle" font-family="Fraunces Variable, Georgia, serif" font-style="italic" font-size="17" fill="#7a6446">${text}</text>`;
+  };
+  const tj = Math.floor((rows - 1) / 2);
+  const names =
+    label(n(tj * cols + mid), n((tj + 1) * cols + mid), 'Via Toledo') +
+    label(n(cols + 1), n(cols + 2), 'Via dei Tribunali') +
+    label(n((rows - 1) * cols + cols - 3), n((rows - 1) * cols + cols - 2), 'Lungomare') +
+    label(n(2 * cols + cols - 3), n(2 * cols + cols - 2), 'Spaccanapoli');
+  const seaY = H - sea + 60;
   const svg = `
     <defs>
       <pattern id="paper" width="6" height="6" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="0.6" fill="rgba(120,90,50,0.08)"/></pattern>
     </defs>
     <rect width="${W}" height="${H}" fill="#efe4cf"/>
     <rect width="${W}" height="${H}" fill="url(#paper)"/>
-    <path d="M0 ${H - 150} C 200 ${H - 210}, 420 ${H - 120}, 620 ${H - 170} S 900 ${H - 230}, ${W} ${H - 190} L ${W} ${H} L 0 ${H} Z" fill="#9fc0d2"/>
-    <path d="M0 ${H - 150} C 200 ${H - 210}, 420 ${H - 120}, 620 ${H - 170} S 900 ${H - 230}, ${W} ${H - 190}" fill="none" stroke="#7aa2b8" stroke-width="3"/>
-    <text x="${W - 60}" y="${H - 70}" text-anchor="end" font-family="Fraunces Variable, Georgia, serif" font-style="italic" font-size="34" fill="#5d8aa3">Golfo di Napoli</text>
-    <path d="M60 70 L150 18 L175 30 L200 14 L300 70 Z" fill="#c9b8a0" opacity="0.8"/>
-    <text x="180" y="94" text-anchor="middle" font-family="Fraunces Variable, Georgia, serif" font-style="italic" font-size="20" fill="#8a7458">Vesuvio</text>
+    <path d="M0 ${seaY} C ${W * 0.2} ${seaY - 50}, ${W * 0.42} ${seaY + 30}, ${W * 0.62} ${seaY - 20} S ${W * 0.9} ${seaY - 70}, ${W} ${seaY - 40} L ${W} ${H} L 0 ${H} Z" fill="#9fc0d2"/>
+    <path d="M0 ${seaY} C ${W * 0.2} ${seaY - 50}, ${W * 0.42} ${seaY + 30}, ${W * 0.62} ${seaY - 20} S ${W * 0.9} ${seaY - 70}, ${W} ${seaY - 40}" fill="none" stroke="#7aa2b8" stroke-width="3"/>
+    <text x="${W - 50}" y="${H - 50}" text-anchor="end" font-family="Fraunces Variable, Georgia, serif" font-style="italic" font-size="34" fill="#5d8aa3">Golfo di Napoli</text>
+    <path d="M${W - 330} 110 L${W - 240} 52 L${W - 215} 66 L${W - 190} 48 L${W - 90} 110 Z" fill="#c9b8a0" opacity="0.85"/>
+    <path d="M${W - 222} 56 q 6 -22 -4 -40 q 18 12 10 38" fill="#d9ccb8" opacity="0.7"/>
+    <text x="${W - 210}" y="134" text-anchor="middle" font-family="Fraunces Variable, Georgia, serif" font-style="italic" font-size="20" fill="#8a7458">Vesuvio</text>
     ${blocks}
     <path d="${streetPath}" stroke="#fffaf0" stroke-width="13" stroke-linecap="round" fill="none"/>
-    <path d="${streetPath}" stroke="#d8c7a6" stroke-width="1.5" stroke-dasharray="2 6" fill="none"/>`;
+    <path d="${streetPath}" stroke="#d8c7a6" stroke-width="1.5" stroke-dasharray="2 6" fill="none"/>
+    ${names}`;
   return { nodes, edges, start, end, svg };
 }
 
@@ -132,6 +147,8 @@ export class Delivery {
   private favicon = document.querySelector<HTMLLinkElement>('[data-favicon]');
   private faviconHref = this.favicon?.href ?? '';
   onArrive: (() => void) | null = null;
+  /** The visitor wants to go back to the shop while the ride carries on. */
+  onLeave: (() => void) | null = null;
 
   constructor(private readonly sound: Sound) {}
 
@@ -152,7 +169,11 @@ export class Delivery {
   /** Shows the map and runs the ride (resumes if already under way). */
   show(ride: Ride): void {
     const el = $('[data-map]');
-    const city = buildCity(ride.seed);
+    // The paper is cut to the screen: the map area is the viewport minus the header and the tracker.
+    const aspect = innerWidth / Math.max(200, innerHeight - (innerWidth <= 760 ? 260 : 190));
+    const W = aspect >= 1 ? Math.round(1000 * aspect) : 1000;
+    const H = aspect >= 1 ? 1000 : Math.round(1000 / aspect);
+    const city = buildCity(ride.seed, W, H);
     const path = route(city.nodes, city.edges, city.start, city.end).map((i) => city.nodes[i]);
     const seg = path.slice(1).map((p, i) => Math.hypot(p.x - path[i].x, p.y - path[i].y));
     const total = seg.reduce((a, b) => a + b, 0);
@@ -162,10 +183,10 @@ export class Delivery {
     const e = path[path.length - 1];
     el.innerHTML = `
       <header class="map__head">
-        <div><h2><span class="it">In viaggio</span> to ${destEn}</h2><p>${ride.name ? `For ${ride.name}. ` : ''}Your rider is Enzo, on a scooter older than he is.</p></div>
+        <div><button type="button" class="map__back" data-map-back><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>Torna in pizzeria</button><h2><span class="it">In viaggio</span> to ${destEn}</h2><p>${ride.name ? `For ${ride.name}. ` : ''}Your rider is Enzo, on a scooter older than he is.</p></div>
         <div class="map__eta"><b data-eta>0:16</b><span>ETA</span></div>
       </header>
-      <svg class="map__svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" aria-label="Map of the route">
+      <svg class="map__svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice" aria-label="Map of the route">
         ${city.svg}
         <path d="${d}" fill="none" stroke="#c8341e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="2 12" opacity="0.6"/>
         <path data-done d="${d}" fill="none" stroke="#c8341e" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="${total} ${total}" stroke-dashoffset="${total}"/>
@@ -181,6 +202,7 @@ export class Delivery {
         <ol class="track">${STEPS.map((st, i) => `<li data-step="${i}"><span class="it">${st[0]}</span>${st[1]}</li>`).join('')}</ol>
       </footer>`;
     el.hidden = false;
+    el.querySelector('[data-map-back]')?.addEventListener('click', () => this.onLeave?.());
     const rider = el.querySelector<SVGGElement>('[data-rider]')!;
     const done = el.querySelector<SVGPathElement>('[data-done]')!;
     const light = el.querySelector<SVGGElement>('[data-light]')!;

@@ -53,14 +53,20 @@
     </div>
 
     <header class="bar" data-bar>
-      <button class="bar__logo" type="button" data-go="sala" aria-label="NOVANTA, back to the dining room">
-        <span class="bar__word">NOVANTA</span><span class="bar__since">pizzeria · dal 1958</span>
-      </button>
+      <div class="bar__left">
+        <button class="bar__back" type="button" data-back aria-label="Back to the dining room" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg><span>Sala</span>
+        </button>
+        <button class="bar__logo" type="button" data-go="sala" aria-label="NOVANTA, back to the dining room">
+          <span class="bar__word">NOVANTA</span><span class="bar__since">pizzeria · dal 1958</span>
+        </button>
+      </div>
       <div class="bar__place" aria-live="polite"><span class="it" data-place-it></span><span class="en" data-place-en></span></div>
       <div class="bar__right">
-        <button class="tessera-btn" type="button" data-tessera aria-label="Loyalty card: things to try">
-          <span class="tessera-btn__card" aria-hidden="true"></span><b data-tessera-count>0/10</b>
+        <button class="tessera-btn" type="button" data-tessera aria-label="Your pizzaiolo diploma: ten seals to earn">
+          <span class="tessera-btn__seal" aria-hidden="true">N</span><span class="tessera-btn__label">Diploma</span><b data-tessera-count>0/10</b>
         </button>
+        <button class="ride-pill" type="button" data-ride-pill hidden><span aria-hidden="true">🛵</span><b data-ride-eta>0:16</b></button>
         <button class="radio-btn" type="button" data-radio aria-pressed="false" aria-label="Radio (sound)">
           <span class="radio-btn__dial" aria-hidden="true"><i></i><i></i><i></i></span>
           <span class="radio-btn__label mono" data-radio-label>Radio off</span>
@@ -69,7 +75,8 @@
     </header>
 
     <!-- Hotspots in the dining room, positioned over the 3D scene. -->
-    <nav class="spots" data-spots aria-label="Places in the pizzeria"></nav>
+    <nav class="spots is-hidden" data-spots aria-label="Places in the pizzeria"></nav>
+    <nav class="dock" data-dock aria-label="Corners of the pizzeria" hidden></nav>
 
     <!-- The kitchen: steps, the working panel, the ticket. -->
     <section class="kitchen" data-kitchen aria-label="Make your pizza" hidden>
@@ -88,13 +95,16 @@
     <div class="note" data-note aria-live="polite" hidden><p class="note__it" data-note-it></p><p class="note__en" data-note-en></p></div>
     <div class="stamp-toast" data-stamp-toast role="status" aria-live="polite"></div>
 
-    <div class="tessera" data-tessera-panel role="dialog" aria-label="Loyalty card" hidden>
-      <div class="tessera__card">
-        <button type="button" class="tessera__close" data-tessera-close aria-label="Close">×</button>
-        <p class="tessera__brand">NOVANTA</p>
-        <p class="tessera__title">Tessera fedeltà</p>
-        <p class="tessera__sub">Ten stamps, ten things to find. Fill the card.</p>
-        <ol class="tessera__grid" data-tessera-grid></ol>
+    <div class="tessera" data-tessera-panel role="dialog" aria-label="Your pizzaiolo diploma" hidden>
+      <div class="diploma">
+        <button type="button" class="tessera__close" data-tessera-close aria-label="Close">&times;</button>
+        <div class="diploma__frame" data-diploma></div>
+        <div class="diploma__list">
+          <p class="diploma__kicker">Il diploma</p>
+          <p class="diploma__title">Ten seals to earn</p>
+          <p class="diploma__sub">It hangs on the wall by the family photos. Everything you find presses a seal into it.</p>
+          <ol class="tessera__grid" data-tessera-grid></ol>
+        </div>
       </div>
     </div>
 

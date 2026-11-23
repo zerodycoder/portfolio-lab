@@ -215,6 +215,14 @@ export class DoughRing {
     this.pullW.fill(0);
   }
 
+  /** Sets the dough to an even radius and makes that its rest shape (no spring-back). */
+  settle(radius: number): void {
+    this.r.fill(radius);
+    this.rest.fill(radius);
+    this.v.fill(0);
+    this.pullW.fill(0);
+  }
+
   step(dt: number): void {
     const k = 220;
     const damp = 2 * Math.sqrt(k) * 0.85;

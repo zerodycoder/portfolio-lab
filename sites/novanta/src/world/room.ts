@@ -1,12 +1,16 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
-import { colorTex } from '../lib/canvas';
-import { cementine, majolica, marble, oakBoard, photoOr, plaster } from './textures';
+import { colorTex, dataTex } from '../lib/canvas';
+import { pbr } from './pbr';
+import { majolica, marble, oakBoard, photoOr, plainTiles, tileRelief } from './textures';
 
 /**
  * The pizzeria's interior, in metres: the floor is y = 0, the street wall z = +2.5, the back wall z = -2.5,
  * side walls x = ±3.2, ceiling 3.1. The oven stands at the back on the left, the marble counter along the back
  * wall to its right with the work board (spianatoia) on it, the shelves above it.
+ *
+ * Surfaces are photo-scanned PBR materials (terracotta floor, lime stucco, oak planks and beams; see pbr.ts); the
+ * glazed tiles are drawn in code but carry their own relief and a clear-coat glaze, so they catch the lamps.
  */
 
 export const ROOM = { x0: -3.2, x1: 3.2, z0: -2.5, z1: 2.5, h: 3.1 };
@@ -25,132 +29,181 @@ export type Room = {
   hot: Record<string, THREE.Object3D>;
 };
 
-function mat(tex: THREE.Texture | null, opts: THREE.MeshStandardMaterialParameters = {}): THREE.MeshStandardMaterial {
-  const m = new THREE.MeshStandardMaterial({ roughness: 0.85, metalness: 0, ...opts });
-  if (tex) m.map = tex;
-  return m;
-}
-
-/** A wall rectangle with UVs in metres (so repeating textures keep their real scale). */
-function wallPiece(w: number, h: number, m: THREE.Material, metresPerRepeat: number): THREE.Mesh {
+/** A plane whose UVs count repeats of `metres` (so a scanned texture keeps its real scale). */
+function plane(w: number, h: number, m: THREE.Material, metres: number): THREE.Mesh {
   const g = new THREE.PlaneGeometry(w, h);
   const uv = g.getAttribute('uv') as THREE.BufferAttribute;
-  for (let i = 0; i < uv.count; i++) uv.setXY(i, (uv.getX(i) * w) / metresPerRepeat, (uv.getY(i) * h) / metresPerRepeat);
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, (uv.getX(i) * w) / metres, (uv.getY(i) * h) / metres);
   const mesh = new THREE.Mesh(g, m);
   mesh.receiveShadow = true;
   return mesh;
+}
+
+/** Glazed tiles: the drawn pattern, a relief normal map and a clear-coat glaze. */
+function glazed(pattern: HTMLCanvasElement, relief: { normal: HTMLCanvasElement; rough: HTMLCanvasElement }): THREE.MeshPhysicalMaterial {
+  const map = colorTex(pattern, [1, 1]);
+  const normalMap = dataTex(relief.normal, [1, 1]);
+  const roughnessMap = dataTex(relief.rough, [1, 1]);
+  [map, normalMap, roughnessMap].forEach((t) => (t.wrapS = t.wrapT = THREE.RepeatWrapping));
+  return new THREE.MeshPhysicalMaterial({
+    map,
+    normalMap,
+    normalScale: new THREE.Vector2(0.9, 0.9),
+    roughnessMap,
+    roughness: 1,
+    clearcoat: 1,
+    clearcoatRoughness: 0.08,
+    clearcoatNormalMap: normalMap,
+    clearcoatNormalScale: new THREE.Vector2(0.5, 0.5),
+  });
 }
 
 export async function buildRoom(base: string): Promise<Room> {
   const group = new THREE.Group();
   group.name = 'room';
   const hot: Record<string, THREE.Object3D> = {};
-
-  const plasterTex = colorTex(plaster(), [1, 1]);
-  plasterTex.wrapS = plasterTex.wrapT = THREE.RepeatWrapping;
-  const tileTex = colorTex(majolica(), [1, 1]);
-  tileTex.wrapS = tileTex.wrapT = THREE.RepeatWrapping;
-  const floorTex = colorTex(cementine(), [1, 1]);
-  floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping;
-
-  const plasterMat = mat(plasterTex, { roughness: 0.95 });
-  const tileMat = mat(tileTex, { roughness: 0.22, metalness: 0 });
-  const floorMat = mat(floorTex, { roughness: 0.6 });
-
-  // Floor
   const W = ROOM.x1 - ROOM.x0;
   const D = ROOM.z1 - ROOM.z0;
-  const floor = wallPiece(W, D, floorMat, 0.8);
+
+  const [floorMat, stuccoMat, ceilingMat, beamMat] = await Promise.all([
+    pbr(base, 'floor', { color: '#f4dfcf' }),
+    pbr(base, 'stucco', { color: '#f2e4cc', normal: 0.8 }),
+    pbr(base, 'ceiling', { color: '#c9a888' }),
+    pbr(base, 'beam', { color: '#8a5a3c' }),
+  ]);
+  const relief = tileRelief();
+  const majolicaMat = glazed(majolica(), relief);
+  const greenMat = glazed(plainTiles([46, 92, 70]), relief);
+
+  // Floor: old terracotta tiles.
+  const floor = plane(W, D, floorMat, 1.4);
   floor.rotation.x = -Math.PI / 2;
   floor.position.set((ROOM.x0 + ROOM.x1) / 2, 0, (ROOM.z0 + ROOM.z1) / 2);
   group.add(floor);
 
-  // Ceiling with chestnut beams
-  const ceil = wallPiece(W, D, mat(plasterTex, { color: '#cdbfa8', roughness: 1 }), 2);
+  // Ceiling: oak boards across chestnut beams.
+  const ceil = plane(W, D, ceilingMat, 1.6);
   ceil.rotation.x = Math.PI / 2;
   ceil.position.set(0, ROOM.h, 0);
   group.add(ceil);
-  const beamMat = mat(null, { color: '#4a3020', roughness: 0.8 });
   for (let z = ROOM.z0 + 0.45; z < ROOM.z1; z += 0.85) {
-    const beam = new THREE.Mesh(new THREE.BoxGeometry(W, 0.16, 0.14), beamMat);
-    beam.position.set(0, ROOM.h - 0.08, z);
+    const g = new THREE.BoxGeometry(W, 0.18, 0.15);
+    const uv = g.getAttribute('uv') as THREE.BufferAttribute;
+    for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * (W / 1.2), uv.getY(i) * 0.15);
+    const beam = new THREE.Mesh(g, beamMat);
+    beam.position.set(0, ROOM.h - 0.09, z);
+    beam.castShadow = true;
+    beam.receiveShadow = true;
     group.add(beam);
   }
 
-  // Walls: plaster above, majolica wainscot below.
-  const TILE_H = 1.35;
-  const addWall = (w: number, pos: THREE.Vector3, rotY: number, tileH = TILE_H): void => {
-    const p = wallPiece(w, ROOM.h, plasterMat, 2);
+  // Walls: lime stucco. A skirting of dark green glazed tiles on the side walls, majolica behind the counter.
+  const SKIRT = 1.12;
+  const wall = (w: number, pos: THREE.Vector3, rotY: number, skirt: boolean): void => {
+    const p = plane(w, ROOM.h, stuccoMat, 1.5);
     p.position.copy(pos).setY(ROOM.h / 2);
     p.rotation.y = rotY;
     group.add(p);
-    const t = wallPiece(w, tileH, tileMat, 0.6);
-    t.position.copy(pos).setY(tileH / 2);
+    if (!skirt) return;
+    const t = plane(w, SKIRT, greenMat, 0.6);
+    t.position.copy(pos).setY(SKIRT / 2);
     t.rotation.y = rotY;
-    t.translateZ(0.004);
+    t.translateZ(0.006);
     group.add(t);
-    // A glazed cobalt border on top of the tiles.
-    const border = new THREE.Mesh(new THREE.BoxGeometry(w, 0.05, 0.02), mat(null, { color: '#1f4fa3', roughness: 0.25 }));
-    border.position.copy(pos).setY(tileH + 0.025);
-    border.rotation.y = rotY;
-    border.translateZ(0.01);
-    group.add(border);
+    // A rounded ceramic cap along the top of the tiles.
+    const holder = new THREE.Group();
+    holder.position.copy(pos).setY(SKIRT + 0.008);
+    holder.rotation.y = rotY;
+    const c2 = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, w, 12, 1), greenMat);
+    c2.rotation.z = Math.PI / 2;
+    c2.position.z = 0.012;
+    holder.add(c2);
+    group.add(holder);
   };
-  addWall(W, new THREE.Vector3(0, 0, ROOM.z0), 0, 1.6);
-  addWall(D, new THREE.Vector3(ROOM.x0, 0, 0), Math.PI / 2);
-  addWall(D, new THREE.Vector3(ROOM.x1, 0, 0), -Math.PI / 2);
-  buildStreetWall(group, plasterMat, tileMat);
-
-  // The marble counter along the back wall
-  const marbleTex = await photoOr(base, 't-marble', () => marble());
+  wall(W, new THREE.Vector3(0, 0, ROOM.z0), 0, false);
+  wall(D, new THREE.Vector3(ROOM.x0, 0, 0), Math.PI / 2, true);
+  wall(D, new THREE.Vector3(ROOM.x1, 0, 0), -Math.PI / 2, true);
+  buildStreetWall(group, stuccoMat);
+  // The majolica backsplash behind the counter.
   const benchLen = BENCH.x1 - BENCH.x0;
+  const splashH = 0.82;
+  const splash = plane(benchLen, splashH, majolicaMat, 0.6);
+  splash.position.set((BENCH.x0 + BENCH.x1) / 2, BENCH.top + splashH / 2, ROOM.z0 + 0.006);
+  group.add(splash);
+
+  // The marble counter along the back wall, majolica on its front.
+  const marbleTex = await photoOr(base, 't-marble', () => marble());
   const benchDepth = BENCH.z1 - BENCH.z0;
-  const top = new THREE.Mesh(new RoundedBoxGeometry(benchLen, 0.045, benchDepth, 2, 0.008), mat(marbleTex, { roughness: 0.25 }));
+  const top = new THREE.Mesh(
+    new RoundedBoxGeometry(benchLen, 0.045, benchDepth, 2, 0.008),
+    new THREE.MeshPhysicalMaterial({ map: marbleTex, roughness: 0.22, clearcoat: 0.5, clearcoatRoughness: 0.18 }),
+  );
   top.position.set((BENCH.x0 + BENCH.x1) / 2, BENCH.top - 0.0225, (BENCH.z0 + BENCH.z1) / 2);
   top.receiveShadow = true;
   top.castShadow = true;
   group.add(top);
-  const front = wallPiece(benchLen, BENCH.top - 0.045, tileMat, 0.6);
+  const front = plane(benchLen, BENCH.top - 0.045, majolicaMat, 0.6);
   front.position.set((BENCH.x0 + BENCH.x1) / 2, (BENCH.top - 0.045) / 2, BENCH.z1 - 0.03);
   group.add(front);
-  const sides = new THREE.Mesh(new THREE.BoxGeometry(benchLen - 0.02, BENCH.top - 0.045, benchDepth - 0.06), mat(null, { color: '#d8cfc0' }));
+  const sides = new THREE.Mesh(new THREE.BoxGeometry(benchLen - 0.02, BENCH.top - 0.045, benchDepth - 0.06), new THREE.MeshStandardMaterial({ color: '#d8cfc0' }));
   sides.position.set(top.position.x, (BENCH.top - 0.045) / 2, top.position.z - 0.02);
   group.add(sides);
+  // A dark plinth at the foot of the counter.
+  const plinth = new THREE.Mesh(new THREE.BoxGeometry(benchLen, 0.08, 0.02), new THREE.MeshStandardMaterial({ color: '#2a2420', roughness: 0.6 }));
+  plinth.position.set(top.position.x, 0.04, BENCH.z1 - 0.02);
+  group.add(plinth);
 
-  // The spianatoia (oak work board) where the pizza is made
+  // The spianatoia (oak work board) where the pizza is made.
   const boardTex = await photoOr(base, 't-bench', () => oakBoard());
-  const board = new THREE.Mesh(new RoundedBoxGeometry(0.92, 0.028, 0.62, 3, 0.006), mat(boardTex, { roughness: 0.78 }));
+  const board = new THREE.Mesh(new RoundedBoxGeometry(0.92, 0.028, 0.62, 3, 0.006), new THREE.MeshStandardMaterial({ map: boardTex, roughness: 0.78 }));
   board.position.set(BOARD_SPOT.x, BENCH.top + 0.014, BOARD_SPOT.z);
   board.receiveShadow = true;
   board.castShadow = true;
   board.name = 'board';
   group.add(board);
 
-  // Lights: low warm fill, three bulbs, the street outside the window.
-  const hemi = new THREE.HemisphereLight('#ffe2bf', '#3a2618', 0.32);
+  // Light: a low warm fill, enamel pendants over the counter and the tables, the street's blue outside.
+  const hemi = new THREE.HemisphereLight('#ffe2bf', '#3a2618', 0.16);
   group.add(hemi);
-  const street = new THREE.DirectionalLight('#8fa6d8', 0.35);
+  const street = new THREE.DirectionalLight('#8fa6d8', 0.3);
   street.position.set(-1, 3, 8);
   group.add(street);
   const bulbs: THREE.PointLight[] = [];
-  const cordMat = mat(null, { color: '#111', roughness: 0.6 });
-  const shadeMat = mat(null, { color: '#1d3a2c', roughness: 0.35, metalness: 0.3, side: THREE.DoubleSide });
-  const bulbMat = new THREE.MeshStandardMaterial({ color: '#fff3d6', emissive: '#ffcf8a', emissiveIntensity: 6 });
+  const cordMat = new THREE.MeshStandardMaterial({ color: '#111', roughness: 0.6 });
+  const enamelOut = new THREE.MeshPhysicalMaterial({ color: '#2f5a43', roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.1 });
+  const enamelIn = new THREE.MeshStandardMaterial({ color: '#f6f0e2', roughness: 0.35, side: THREE.BackSide, emissive: '#ffd9a0', emissiveIntensity: 0.25 });
+  const brass = new THREE.MeshStandardMaterial({ color: '#b8902e', metalness: 0.9, roughness: 0.3 });
+  const bulbMat = new THREE.MeshStandardMaterial({ color: '#fff3d6', emissive: '#ffcf8a', emissiveIntensity: 8 });
+  const shadeGeo = new THREE.LatheGeometry(
+    Array.from({ length: 12 }, (_, i) => {
+      const t = i / 11;
+      return new THREE.Vector2(0.03 + Math.pow(t, 1.6) * 0.16, -t * 0.12);
+    }),
+    40,
+  );
   const pendant = (x: number, z: number, drop: number): THREE.Vector3 => {
     const y = ROOM.h - drop;
     const cord = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, drop, 6), cordMat);
     cord.position.set(x, ROOM.h - drop / 2, z);
     group.add(cord);
-    const shade = new THREE.Mesh(new THREE.ConeGeometry(0.17, 0.14, 28, 1, true), shadeMat);
-    shade.position.set(x, y - 0.04, z);
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.028, 0.04, 16), brass);
+    cap.position.set(x, y + 0.01, z);
+    group.add(cap);
+    const shade = new THREE.Mesh(shadeGeo, enamelOut);
+    shade.position.set(x, y, z);
+    shade.castShadow = true;
     group.add(shade);
-    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.035, 16, 12), bulbMat);
-    bulb.position.set(x, y - 0.1, z);
+    const inner = new THREE.Mesh(shadeGeo, enamelIn);
+    inner.position.set(x, y - 0.001, z);
+    inner.scale.setScalar(0.985);
+    group.add(inner);
+    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.03, 16, 12), bulbMat);
+    bulb.position.set(x, y - 0.07, z);
     group.add(bulb);
-    return new THREE.Vector3(x, y - 0.12, z);
+    return new THREE.Vector3(x, y - 0.09, z);
   };
   const benchLampPos = pendant(BOARD_SPOT.x, BOARD_SPOT.z + 0.1, 1.15);
-  const pendantSpot = new THREE.SpotLight('#ffd9a8', 3.4, 4, 0.9, 0.6, 1.6);
+  const pendantSpot = new THREE.SpotLight('#ffd9a8', 4.2, 4, 0.95, 0.65, 1.6);
   pendantSpot.position.copy(benchLampPos);
   pendantSpot.target.position.set(BOARD_SPOT.x, BENCH.top, BOARD_SPOT.z);
   pendantSpot.castShadow = true;
@@ -161,22 +214,30 @@ export async function buildRoom(base: string): Promise<Room> {
   pendantSpot.shadow.camera.far = 3;
   pendantSpot.shadow.radius = 3;
   group.add(pendantSpot, pendantSpot.target);
+  pendant(1.75, BOARD_SPOT.z + 0.1, 1.15);
+  // Over the two tables and the till (all clear of the dining-room view).
   for (const [x, z] of [
-    [-0.9, 0.6],
-    [1.9, 0.9],
+    [-1.9, 1.4],
+    [-0.4, 1.6],
+    [2.45, 1.45],
   ]) {
-    const p = pendant(x, z, 0.75);
-    const l = new THREE.PointLight('#ffcf96', 2.6, 7, 1.6);
+    const p = pendant(x, z, 1.25);
+    const l = new THREE.PointLight('#ffc98a', 2.4, 5, 1.9);
     l.position.copy(p);
     group.add(l);
     bulbs.push(l);
   }
+  // The second counter lamp lights the shelves and the dough boxes.
+  const shelfLight = new THREE.SpotLight('#ffd2a0', 3, 4, 1.0, 0.7, 1.7);
+  shelfLight.position.set(1.75, ROOM.h - 1.25, BOARD_SPOT.z + 0.1);
+  shelfLight.target.position.set(2.0, BENCH.top, -2.3);
+  group.add(shelfLight, shelfLight.target);
 
   return { group, board, pendantSpot, lights: { bulbs, hemi, street }, hot };
 }
 
 /** The street wall, with the shop door and the big window cut out of it. */
-function buildStreetWall(group: THREE.Group, plasterMat: THREE.Material, tileMat: THREE.Material): void {
+function buildStreetWall(group: THREE.Group, mat: THREE.Material): void {
   const z = ROOM.z1;
   const shape = new THREE.Shape();
   shape.moveTo(ROOM.x0, 0);
@@ -198,13 +259,11 @@ function buildStreetWall(group: THREE.Group, plasterMat: THREE.Material, tileMat
   win.closePath();
   shape.holes.push(door, win);
   const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.3, bevelEnabled: false });
-  // UVs in metres for the plaster.
   const uv = geo.getAttribute('uv') as THREE.BufferAttribute;
-  for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) / 2, uv.getY(i) / 2);
-  const wall = new THREE.Mesh(geo, plasterMat);
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) / 1.5, uv.getY(i) / 1.5);
+  const wall = new THREE.Mesh(geo, mat);
   wall.position.z = z;
   wall.receiveShadow = true;
   wall.name = 'street-wall';
   group.add(wall);
-  void tileMat;
 }

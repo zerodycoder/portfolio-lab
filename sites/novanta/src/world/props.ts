@@ -4,6 +4,7 @@ import { canvas, colorTex, loadImage } from '../lib/canvas';
 import { rng } from '../lib/rand';
 import { CLASSICS } from '../pizza/catalog';
 import { BENCH, DOOR, ROOM, WINDOW } from './room';
+import { pbr } from './pbr';
 import { chalkboard } from './textures';
 
 /**
@@ -108,9 +109,8 @@ function fiasco(): THREE.Group {
 }
 
 /** Dough boxes: stacked wooden proofing trays, the top one open with its balls (they rise with the clock). */
-function doughBoxes(): { group: THREE.Group; balls: THREE.Mesh[] } {
+function doughBoxes(wood: THREE.Material): { group: THREE.Group; balls: THREE.Mesh[] } {
   const group = new THREE.Group();
-  const wood = std({ color: '#b98a55', roughness: 0.75 });
   const balls: THREE.Mesh[] = [];
   const doughMat = std({ color: '#efe3cc', roughness: 0.7 });
   for (let i = 0; i < 3; i++) {
@@ -187,7 +187,7 @@ function ristra(len: number): THREE.Group {
   return g;
 }
 
-function table(): THREE.Group {
+function table(wood: THREE.Material): THREE.Group {
   const g = new THREE.Group();
   const cloth = label(256, 256, (x) => {
     for (let i = 0; i < 8; i++)
@@ -211,9 +211,9 @@ function table(): THREE.Group {
   g.add(top, drape, leg);
   for (let i = 0; i < 2; i++) {
     const chair = new THREE.Group();
-    const seat = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.04, 0.36), std({ color: '#6b3f22', roughness: 0.7 }));
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.04, 0.36), wood);
     seat.position.y = 0.45;
-    const back = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.42, 0.03), std({ color: '#6b3f22', roughness: 0.7 }));
+    const back = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.42, 0.03), wood);
     back.position.set(0, 0.68, -0.17);
     chair.add(seat, back);
     for (const [x, z] of [[-0.16, -0.16], [0.16, -0.16], [-0.16, 0.16], [0.16, 0.16]]) {
@@ -246,10 +246,13 @@ function frame(w: number, h: number, sepia: number): THREE.Mesh {
   return m;
 }
 
-export async function buildProps(base: string): Promise<Props> {
+export async function buildProps(base: string, diploma: HTMLCanvasElement): Promise<Props & { diplomaTex: THREE.Texture }> {
   const group = new THREE.Group();
   group.name = 'props';
   const anchors: Record<string, THREE.Vector3> = {};
+  // Scanned oak for everything wooden: shelves, frames, trays, chairs.
+  const woodMat = await pbr(base, 'wood', { color: '#9c6a46' });
+  const darkWood = await pbr(base, 'wood', { color: '#5e3c26' });
 
   // Chalkboard menu above the counter's left half.
   const W = 1.3;
@@ -278,14 +281,26 @@ export async function buildProps(base: string): Promise<Props> {
     });
   });
   const chalk = new THREE.Mesh(new THREE.PlaneGeometry(W, H), std({ map: colorTex(board), roughness: 0.95 }));
-  chalk.position.set(0.35, 1.98, ROOM.z0 + 0.02);
-  const chalkFrame = new THREE.Mesh(new THREE.BoxGeometry(W + 0.08, H + 0.08, 0.025), std({ color: '#5a3820', roughness: 0.6 }));
+  chalk.position.set(0.35, 1.98, ROOM.z0 + 0.024);
+  const chalkFrame = new THREE.Mesh(new THREE.BoxGeometry(W + 0.08, H + 0.08, 0.025), darkWood);
   chalkFrame.position.set(0.35, 1.98, ROOM.z0 + 0.008);
   group.add(chalkFrame, chalk);
+  const brassMat = new THREE.MeshStandardMaterial({ color: '#b8902e', metalness: 0.9, roughness: 0.3 });
+  const lampBar = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.7, 20), brassMat);
+  lampBar.rotation.z = Math.PI / 2;
+  lampBar.position.set(0.35, 1.98 + H / 2 + 0.12, ROOM.z0 + 0.16);
+  const lampArm = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.16, 8), brassMat);
+  lampArm.rotation.x = Math.PI / 2;
+  lampArm.position.set(0.35, 1.98 + H / 2 + 0.12, ROOM.z0 + 0.08);
+  group.add(lampBar, lampArm);
+  const picture = new THREE.SpotLight('#ffe2b8', 2.2, 2.2, 0.75, 0.7, 1.6);
+  picture.position.set(0.35, 1.98 + H / 2 + 0.1, ROOM.z0 + 0.22);
+  picture.target.position.set(0.35, 1.8, ROOM.z0);
+  group.add(picture, picture.target);
   anchors.menu = new THREE.Vector3(0.35, 2.3, ROOM.z0 + 0.1);
 
   // Shelves on the back wall, right of the menu.
-  const shelfMat = std({ color: '#6b4426', roughness: 0.7 });
+  const shelfMat = woodMat;
   for (const y of [1.62, 2.05]) {
     const shelf = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.03, 0.24), shelfMat);
     shelf.position.set(1.9, y, ROOM.z0 + 0.12);
@@ -313,7 +328,7 @@ export async function buildProps(base: string): Promise<Props> {
   }
 
   // Dough boxes at the right end of the counter.
-  const boxes = doughBoxes();
+  const boxes = doughBoxes(woodMat);
   boxes.group.position.set(2.25, BENCH.top, -2.12);
   boxes.group.rotation.y = -0.08;
   group.add(boxes.group);
@@ -363,11 +378,25 @@ export async function buildProps(base: string): Promise<Props> {
   );
   anchors.famiglia = new THREE.Vector3(ROOM.x0 + 0.1, 2.08, 0.6);
 
+  // The visitor's diploma hangs next to the family: its texture is the live canvas the seals are pressed into.
+  const diplomaTex = new THREE.CanvasTexture(diploma);
+  diplomaTex.colorSpace = THREE.SRGBColorSpace;
+  diplomaTex.anisotropy = 8;
+  const dip = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.56), std({ map: diplomaTex, roughness: 0.7 }));
+  const dipFrame = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.64, 0.02), darkWood);
+  dipFrame.position.z = -0.0125;
+  const gilt = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.6, 0.01), std({ color: '#b8902e', roughness: 0.35, metalness: 0.7 }));
+  gilt.position.z = -0.006;
+  dip.add(dipFrame, gilt);
+  dip.position.set(ROOM.x0 + 0.035, 1.62, -0.62);
+  dip.rotation.y = Math.PI / 2;
+  group.add(dip);
+
   // Tables by the window.
-  const t1 = table();
+  const t1 = table(darkWood);
   t1.position.set(-1.9, 0, 1.4);
   group.add(t1);
-  const t2 = table();
+  const t2 = table(darkWood);
   t2.position.set(-0.4, 0, 1.6);
   t2.rotation.y = 0.6;
   group.add(t2);
@@ -420,10 +449,10 @@ export async function buildProps(base: string): Promise<Props> {
   const door = new THREE.Mesh(new THREE.BoxGeometry(DOOR.w * 0.98, DOOR.h * 0.98, 0.05), std({ color: '#2f5a43', roughness: 0.55 }));
   door.geometry.translate(DOOR.w / 2, DOOR.h / 2, 0);
   door.position.set(DOOR.x - DOOR.w / 2, 0, ROOM.z1 - 0.02);
-  door.rotation.y = -1.9;
+  door.rotation.y = 2.85;
   group.add(door);
 
   anchors.banco = new THREE.Vector3(0.62, BENCH.top + 0.32, -2.0);
   anchors.forno = new THREE.Vector3(-1.55, 1.9, -1.4);
-  return { group, anchors, doughBalls: boxes.balls, radio: rad, photos };
+  return { group, anchors, doughBalls: boxes.balls, radio: rad, photos, diplomaTex };
 }

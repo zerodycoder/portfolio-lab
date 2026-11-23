@@ -42,7 +42,7 @@ export function shot(id: PlaceId, portrait: boolean): Shot {
     case 'lievito':
       return portrait ? at(v(2.0, 1.75, -0.7), v(2.25, 0.98, -2.1), 58) : at(v(1.75, 1.6, -1.0), v(2.3, 1.0, -2.1), 46);
     case 'casa':
-      return { target: v(30, 0.05, 0.1), dir: v(0, -0.88, -0.48), radius: 0.3, fov: 40 };
+      return { target: v(30, 0.05, 0.0), dir: v(0, -0.86, -0.5), radius: 0.34, fov: 40 };
   }
 }
 
@@ -62,6 +62,9 @@ export class Rig {
   override: (() => Shot) | null = null;
   /** A one-off framing set by goShot (kept across re-layouts until the next place). */
   private custom: Shot | null = null;
+  /** Looking around from where the camera stands: yaw, pitch (radians). Reset by every move. */
+  readonly look = new THREE.Vector2();
+  private lookNow = new THREE.Vector2();
 
   constructor(private readonly stage: Stage) {
     stage.onResize(() => this.refit());
@@ -90,6 +93,7 @@ export class Rig {
   go(id: PlaceId, seconds = 1.6, lift = 0.25): Promise<void> {
     this.current = id;
     this.custom = null;
+    this.look.set(0, 0);
     this.snapshot();
     this.copyInto(this.to, this.solved(id));
     this.t = 0;
@@ -151,7 +155,15 @@ export class Rig {
     const k = this.t < 1 ? easeInOut(this.t) : 1;
     const pos = this.from.pos.clone().lerp(this.to.pos, k);
     pos.y += Math.sin(k * Math.PI) * this.lift;
-    const target = this.from.target.clone().lerp(this.to.target, k);
+    let target = this.from.target.clone().lerp(this.to.target, k);
+    this.lookNow.lerp(this.look, Math.min(1, dt * 6));
+    if (this.lookNow.lengthSq() > 1e-7) {
+      const d = target.clone().sub(pos);
+      d.applyAxisAngle(new THREE.Vector3(0, 1, 0), this.lookNow.x);
+      const right = new THREE.Vector3().crossVectors(d, new THREE.Vector3(0, 1, 0)).normalize();
+      d.applyAxisAngle(right, this.lookNow.y);
+      target = pos.clone().add(d);
+    }
     // Parallax: orbit the camera a touch around its target.
     if (this.swayNow.lengthSq() > 1e-6) {
       const off = pos.clone().sub(target);
