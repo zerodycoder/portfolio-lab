@@ -7,19 +7,23 @@ TypeScript project (npm workspaces). Plumbing they share lives in `packages/kit`
 | --- | --- | --- |
 | `sites/rakhsh` | RAKHSH, a fictional electric motorcycle (cinematic, generated media) | Live at [rakhsh.zerodycoder.com](https://rakhsh.zerodycoder.com) |
 | `sites/nibbo` | NIBBO, a fictional coding robot for kids (live 3D, everything drawn by code) | Live at [nibbo.zerodycoder.com](https://nibbo.zerodycoder.com) |
-| `sites/sayeh` | SAYEH, a fictional shade-grown coffee roaster and café (multi-page, fluid simulation over photos) | Built, not deployed yet |
+| `sites/sayeh` | SAYEH, a fictional shade-grown coffee roaster and café (multi-page, fluid simulation over photos) | Live at [sayeh.zerodycoder.com](https://sayeh.zerodycoder.com) |
+| `sites/novanta` | NOVANTA, a fictional Neapolitan pizzeria you walk into and bake in (a 3D place, not a page) | Live at [novanta.zerodycoder.com](https://novanta.zerodycoder.com) |
 
 ## Commands
 
 ```bash
 npm install                                  # once, at the repo root
-npm run dev -w nibbo                         # dev server (rakhsh :5173, nibbo :5175, sayeh :5176)
+npm run dev -w nibbo                         # dev server (rakhsh :5173, nibbo :5175, sayeh :5176, novanta :5177)
 npm run build -w nibbo                       # type-check + production build into sites/nibbo/dist
-npm run preview -w nibbo                     # serve the build (rakhsh :4173, nibbo :4175, sayeh :4176)
+npm run preview -w nibbo                     # serve the build (rakhsh :4173, nibbo :4175, sayeh :4176, novanta :4177)
 node tools/process-rakhsh.mjs                # convert assets-inbox/rakhsh → sites/rakhsh/public/media + manifest.json
 node tools/process-sayeh.mjs                 # same for assets-inbox/sayeh → sites/sayeh/public/media (measures the cup photo)
+node tools/process-novanta.mjs               # assets-inbox/novanta → cut-out toppings, photos and textures for NOVANTA
+node tools/fetch-novanta-pbr.mjs             # download NOVANTA's scanned materials and HDRI (Poly Haven, CC0) as WebP
 node tools/og-nibbo.mjs                      # render NIBBO's 1200×630 social image from the live page (preview running)
 node tools/og-sayeh.mjs                      # render SAYEH's social image: a rosetta poured on the live page
+node tools/og-novanta.mjs                    # render NOVANTA's social image: the street at night, shutter down
 node tools/shoot.mjs <url> tools/out/<run> --site=nibbo [--browser=msedge] [--sound] [--only=desktop|mobile] [--sections=…] [--resolve=host:ip]
 ```
 
@@ -169,12 +173,38 @@ plain crema), `b-roast` (video), `c-ethiopia`, `c-colombia`, `c-kenya`, `c-guate
 roast loop, the cup's crema crop for the simulation and `manifest.json` with the measured liquid circle. Anything
 missing falls back to a drawn version (the table and cup, the bean drum, cherries).
 
+## NOVANTA architecture
+
+A fictional Neapolitan pizzeria, dal 1958. Not a scrolling page: a three.js place the visitor walks through, from
+the street into the dining room and the kitchen, and out on a delivery.
+
+- **The street** (`src/world/facade.ts`, `buildings.ts`, `street.ts`): the shopfront at night behind a roller
+  shutter the visitor drags up. Dressed windows on two floors (stone surrounds, sills, persiane, a room behind each:
+  lace, lamplight, a television, light through closed slats) merged into a few draw calls; weathered plaster
+  (damp, streaks, fallen patches showing the tuff) drawn on a canvas skin; neighbouring houses carrying the street
+  on both ways; a vintage scooter, geraniums and ivy as instanced leaves, a lemon tree, a shrine with flickering
+  candles, posters, the shop's number 90 on a majolica tile.
+- **The room** (`src/world/room.ts`, `props.ts`, `details.ts`, `oven.ts`): photo-scanned PBR materials (`pbr.ts`)
+  and an HDR environment, glazed tiles with relief and a clear coat, a wood-fired oven with a mosaic dome. Corners
+  are hotspots (the menu, the family's photos, the dough, the oven, the radio); drag to look around, and phones get
+  a dock of corners.
+- **The kitchen** (`src/app/kitchen.ts`, `src/pizza`): press and stretch a soft-body dough ball, paint the sauce,
+  drop toppings that fall and settle with Rapier physics, slide the pizza in with the peel, turn it and fan the fire
+  while a bake shader browns it (the fire is on one side, so an unturned pizza burns there), then cut it and add the
+  finishing touches.
+- **Delivery** (`src/app/delivery.ts`): name the box, send it, and follow a 16-second ride across a drawn map of
+  Naples; the tab's title and favicon count down, the ride survives a reload, and the same pizza arrives at the door.
+- **Discovering things** (`src/app/stamps.ts`): a pizzaiolo's diploma on the wall with ten wax seals.
+- **Media**: the user's generated photos (toppings cut out of plain backgrounds, family photos) through
+  `tools/process-novanta.mjs`; scanned materials and the HDRI from [Poly Haven](https://polyhaven.com) (CC0) through
+  `tools/fetch-novanta-pbr.mjs`.
+
 ## Deploying
 
 Each site is its own Vercel project with its root directory set to `sites/<name>`; Vercel installs the workspace
 from the repo root, so `packages/kit` is linked in. Every push to `main` deploys the sites that have a project
-(RAKHSH and NIBBO; SAYEH once its project exists). Each site has a subdomain of zerodycoder.com, pointed at Vercel
-with a CNAME record.
+(RAKHSH, NIBBO, SAYEH and NOVANTA). Each site has a subdomain of zerodycoder.com, pointed at Vercel with a CNAME
+record.
 
 ## RAKHSH
 
