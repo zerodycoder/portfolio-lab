@@ -2,14 +2,14 @@
 
 export default {
   sections:
-    'pour~4,pour:pour,pour:etch,pour:day,pour:stamps,shade^0.5,shade,roast@0.15,roast@0.85,coffees^0.5,coffees,footer,' +
+    'pour~4,pour:pour,pour:etch,pour:day,pour:stamps,shade^0.5,shade,farms,roast@0.15,roast@0.85,shot~3,shot~8,coffees^0.5,coffees,cafe,cafe:night,cafe:day,footer,' +
     '/shop,grid:filter,subscribe,/shop/hambela-shade,buy:add,farm,label,pairs,/checkout,checkout:order,' +
     '/lab,lab,lab:dial,timer:timer,/origins,atlas,atlas:farm,farm,flavours:note,/visit,cafe,cafe:sun,visit,footer,/,pour:golden,pour:night',
 
   // The gate's coffee flies to the cup, then a barista pours a heart (about 3.5 s).
   afterEnterMs: 2500,
 
-  overflowIgnore: '.shade, .bag-row, .drawer, .cup-scene',
+  overflowIgnore: '.shade, .bag-row, .farm-strip, .drawer, .cup-scene',
 
   probe: () => {
     const app = window.__sayeh;

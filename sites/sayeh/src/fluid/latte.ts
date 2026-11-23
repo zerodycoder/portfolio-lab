@@ -7,7 +7,7 @@ type Move = Tool | 'pull' | 'lift';
 export type Preset = 'heart' | 'rosetta' | 'tulip';
 
 /** What a scripted pour does at time t: where the spout is, how hard it pours, and with which tool. */
-type Frame = { x: number; y: number; flow: number; tool: Move; push?: number; drag?: number; gain?: number } | null;
+type Frame = { x: number; y: number; flow: number; tool: Move; push?: number; drag?: number; gain?: number; pullRadius?: number; cone?: number; twin?: number } | null;
 
 export interface LatteSound {
   pour(flow: number): void;
@@ -31,7 +31,7 @@ const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
 const ease = (t: number): number => t * t * (3 - 2 * t);
 
 /** Piecewise-linear position over named keyframes [t, x, y, flow, tool?]. */
-function keyframes(keys: [number, number, number, number, Move?][], push = 0, drag = 0.8, gain = 1): (t: number) => Frame {
+function keyframes(keys: [number, number, number, number, Move?][], push = 0, drag = 0.8, gain = 1, pullRadius = 0.0005): (t: number) => Frame {
   const end = keys[keys.length - 1][0];
   return (t) => {
     if (t > end) return null;
@@ -40,7 +40,7 @@ function keyframes(keys: [number, number, number, number, Move?][], push = 0, dr
     const [t0, x0, y0, f0] = keys[i];
     const [t1, x1, y1, f1, tool] = keys[i + 1];
     const k = t1 > t0 ? Math.min(1, Math.max(0, (t - t0) / (t1 - t0))) : 1;
-    return { x: lerp(x0, x1, k), y: lerp(y0, y1, k), flow: lerp(f0, f1, k), tool: tool ?? 'pour', push, drag, gain };
+    return { x: lerp(x0, x1, k), y: lerp(y0, y1, k), flow: lerp(f0, f1, k), tool: tool ?? 'pour', push, drag, gain, pullRadius };
   };
 }
 
@@ -50,18 +50,28 @@ function keyframes(keys: [number, number, number, number, Move?][], push = 0, dr
  * tulip is stacked pushes, each one shoving the last forward.
  */
 const PRESETS: Record<Preset, (t: number) => Frame> = {
-  heart: keyframes([
-    [0, 0.5, 0.57, 0],
-    [0.4, 0.5, 0.57, 0.9],
-    [3.4, 0.5, 0.55, 1],
-    [3.55, 0.5, 0.82, 0, 'lift'],
-    [3.82, 0.5, 0.5, 0.35, 'pull'],
-    [3.98, 0.5, 0.42, 0.1, 'pull'],
-    [4.03, 0.5, 0.415, 0, 'pull'],
-  ], 0, 1.1, 1.45),
+  // A blob poured from a jug wiggling very slightly (two lobes growing side by side), then the pull-through in three
+  // phases: entering, a cone-shaped drag folds the top into a V between the lobes (fading as it goes, so the crema it
+  // carries in doesn't pile up); through the middle the hand barely drags while a thin stream keeps the white closed;
+  // past the front edge a cone-shaped drag draws the sides together and the narrow tail of the stroke makes the point.
+  heart: (t) => {
+    if (t > 4.2) return null;
+    if (t < 0.4) return { x: 0.5, y: 0.6, flow: ease(t / 0.4) * 0.9, tool: 'pour', gain: 1.45, twin: 0.035 };
+    if (t < 3.4) return { x: 0.5, y: lerp(0.6, 0.58, (t - 0.4) / 3), flow: lerp(0.9, 1, (t - 0.4) / 3), tool: 'pour', gain: 1.45, twin: 0.035 };
+    if (t < 3.55) return { x: 0.5, y: lerp(0.58, 0.88, (t - 3.4) / 0.15), flow: 0, tool: 'lift' };
+    const y = lerp(0.88, 0.3, Math.min(1, (t - 3.55) / 0.5));
+    if (y > 0.74) {
+      const n = (y - 0.74) / 0.14;
+      return { x: 0.5, y, flow: 0, tool: 'pull', drag: 0.64 * (0.35 + 0.65 * n), pullRadius: 0.0006, cone: 1.12 * n };
+    }
+    if (y > 0.47) return { x: 0.5, y, flow: 0.55, tool: 'pull', drag: 0.12, pullRadius: 0.0005 };
+    const cone = 1.6 * Math.max(0, 1 - (0.47 - y) / 0.12);
+    const fade = Math.max(0, Math.min(1, (y - 0.3) / 0.06));
+    return { x: 0.5, y, flow: 0, tool: 'pull', drag: 0.6 * fade, pullRadius: 0.0004, cone };
+  },
   // The stream leans forward (push < 0 is toward the bottom of the screen): each wiggle shoves the last one ahead.
   rosetta: (t) => {
-    if (t > 4.35) return null;
+    if (t > 4.4) return null;
     if (t < 0.6) return { x: 0.5, y: 0.5, flow: ease(t / 0.6) * 0.85, tool: 'pour', push: -0.5 };
     if (t < 3.3) {
       const k = (t - 0.6) / 2.7;
@@ -69,7 +79,10 @@ const PRESETS: Record<Preset, (t: number) => Frame> = {
       return { x: 0.5 + Math.sin((t - 0.6) * Math.PI * 2 * 3.7) * amp, y: lerp(0.5, 0.79, k), flow: 0.9, tool: 'pour', push: -0.8 };
     }
     if (t < 3.45) return { x: 0.5, y: lerp(0.79, 0.83, (t - 3.3) / 0.15), flow: 0, tool: 'lift' };
-    return { x: 0.5, y: lerp(0.83, 0.22, Math.min(1, (t - 3.45) / 0.5)), flow: t < 3.95 ? 0.35 : 0, tool: 'pull', drag: 1 };
+    const k = Math.min(1, (t - 3.45) / 0.55);
+    const y = lerp(0.83, 0.17, k);
+    const tail = Math.max(0, (0.3 - y) / 0.13);
+    return { x: 0.5, y, flow: Math.max(0, 0.45 * (1 - k / 0.7)), tool: 'pull', drag: 1 * (1 - tail), pullRadius: 0.0005 };
   },
   tulip: keyframes(
     [
@@ -85,12 +98,16 @@ const PRESETS: Record<Preset, (t: number) => Frame> = {
       [2.6, 0.5, 0.7, 0.95],
       [3.1, 0.5, 0.7, 0.95],
       [3.18, 0.5, 0.7, 0],
-      [3.35, 0.5, 0.82, 0, 'lift'],
-      [3.75, 0.5, 0.3, 0.35, 'pull'],
-      [3.82, 0.5, 0.28, 0, 'pull'],
+      [3.35, 0.5, 0.83, 0, 'lift'],
+      [3.6, 0.5, 0.55, 0.45, 'pull'],
+      [3.82, 0.5, 0.32, 0.12, 'pull'],
+      [3.94, 0.5, 0.21, 0, 'pull'],
+      [3.98, 0.5, 0.2, 0, 'pull'],
     ],
-    -0.9,
+    -0.6,
     0.7,
+    1.25,
+    0.0006,
   ),
 };
 
@@ -119,6 +136,11 @@ export class Latte {
   private listeners = new Set<(e: LatteEvent) => void>();
   private dirty = true;
   private gen = 0;
+  private tick = 0;
+  /** How much milk has dived under the crema (0..1): lightens the canvas as the cup fills. */
+  private mixLevel = 0;
+  /** Direction of the jug's last clear movement while pouring, to spot each swing of a wiggle. */
+  private swing: { x: number; y: number } | null = null;
   private byHand = false;
   private streaming = false;
 
@@ -127,7 +149,7 @@ export class Latte {
     private readonly sound: LatteSound,
     quality: 'high' | 'low',
   ) {
-    this.fluid = new Fluid(canvas, quality === 'high' ? { simRes: 160, dyeRes: 768, iterations: 24 } : { simRes: 112, dyeRes: 512, iterations: 18 });
+    this.fluid = new Fluid(canvas, quality === 'high' ? { simRes: 112, dyeRes: 768, iterations: 18 } : { simRes: 112, dyeRes: 512, iterations: 18 });
   }
 
   on(fn: (e: LatteEvent) => void): () => void {
@@ -241,6 +263,10 @@ export class Latte {
     let push = 0;
     let drag = 0.8;
     let gain = 1;
+    let pullRadius = 0.0005;
+    let cone = 0;
+    let twin = 0;
+
 
     if (this.script) {
       this.scriptT += dt;
@@ -256,6 +282,10 @@ export class Latte {
         push = fr.push ?? 0;
         drag = fr.drag ?? 0.8;
         gain = fr.gain ?? 1;
+        pullRadius = fr.pullRadius ?? 0.0005;
+        cone = fr.cone ?? 0;
+        twin = fr.twin ?? 0;
+
         if (this.scriptT < dt * 1.5) this.prev = { ...this.pos };
       }
     } else if (this.held) {
@@ -273,10 +303,24 @@ export class Latte {
       this.flow += (target - this.flow) * k;
       const fl = tool === 'lift' ? 0 : this.flow;
       // A new pour (a new layer) starts when the stream starts again, with hysteresis so the ramp counts once.
-      if (fl < 0.004) this.streaming = false;
-      if (tool === 'pull' && fl > 0.01) {
-        // The pull-through: a thin stream cuts through the foam, dragging its middle forward into a point.
-        f.splat(this.pos.x, this.pos.y, (moved.x / dt) * drag, (moved.y / dt) * drag, 0.0005);
+      if (fl < 0.004) {
+        this.streaming = false;
+        this.swing = null;
+      }
+      if (tool === 'pull') {
+        // The pull-through: a thin stream cuts through the foam, dragging its middle forward into a point. As the jug
+        // lifts away the stream thins to nothing, so the drag alone draws the tip.
+        if (speed > 0.01) f.splat(this.pos.x, this.pos.y, (moved.x / dt) * drag, (moved.y / dt) * drag, pullRadius);
+        // A cone-shaped drag (strongest on the line, falling off steadily to the sides, built from three widths):
+        // the edge of the foam is pulled out into a V rather than a narrow nub or a round lobe.
+        if (cone > 0 && speed > 0.01) {
+          const vx = moved.x / dt;
+          const vy = moved.y / dt;
+          f.splat(this.pos.x, this.pos.y, vx * 0.5 * cone, vy * 0.5 * cone, 0.0018);
+          f.splat(this.pos.x, this.pos.y, vx * 0.26 * cone, vy * 0.26 * cone, 0.007);
+        }
+        // The thin stream itself lands in the channel it cuts, so only the top of the cut stays open (the cleft).
+        if (fl > 0.01) f.milk(this.pos.x, this.pos.y, Math.min(1, fl * dt * 45), 0.00028 + fl * 0.0003, 0.2 + this.gen * 0.13);
         this.quiet = 0;
       } else if (fl > 0.01 && this.milkLeft > 0) {
         if (!this.streaming) {
@@ -285,8 +329,19 @@ export class Latte {
           this.emit({ type: 'pour', hand: this.held });
         }
         if (this.held) this.byHand = true;
-        f.source(this.pos.x, this.pos.y, 20 * fl * gain, 0.0016);
-        f.milk(this.pos.x, this.pos.y, Math.min(1, fl * dt * 34 * gain), 0.0009, 0.2 + this.gen * 0.13);
+        // Each swing of a wiggle lays down a new layer of foam (a new leaf): a reversal of the jug's direction
+        // starts a new tag, and the seams between tags are drawn as fine crema lines.
+        if (speed > 0.35 && fl > 0.3) {
+          const dir = { x: moved.x / (speed * dt), y: moved.y / (speed * dt) };
+          if (this.swing && dir.x * this.swing.x + dir.y * this.swing.y < -0.3) this.gen = (this.gen + 1) % 6;
+          this.swing = dir;
+        }
+        this.mixLevel = Math.min(1, this.mixLevel + fl * dt * 0.22 * gain);
+        // A twin pour alternates between two spouts every frame (two lobes growing side by side).
+        this.tick++;
+        const sx = twin ? this.pos.x + (this.tick % 2 ? twin : -twin) : this.pos.x;
+        f.source(sx, this.pos.y, 20 * fl * gain, 0.0016);
+        f.milk(sx, this.pos.y, Math.min(1, fl * dt * 34 * gain * (twin ? 1.6 : 1)), 0.0009, 0.2 + this.gen * 0.13);
         if (push) f.splat(this.pos.x, this.pos.y, 0, push * fl, 0.0012);
         // A moving stream carries its momentum into the cup (this is what draws a rosetta's leaves).
         if (speed > 0.01) f.splat(this.pos.x, this.pos.y, (moved.x / dt) * (0.3 + 0.45 * fl), (moved.y / dt) * (0.3 + 0.45 * fl), 0.0022);
@@ -337,6 +392,7 @@ export class Latte {
 
     if (this.fadeOut > 0) {
       this.fadeOut = Math.max(0, this.fadeOut - dt * 1.6);
+      this.mixLevel *= 0.9;
       f.fade(this.fadeOut > 0 ? 0.9 : 0, 0.9);
       this.quiet = 0;
     }
@@ -344,7 +400,7 @@ export class Latte {
     // Foam is viscous: once the hand stops, the surface settles within a fraction of a second.
     const handOn = this.held || this.script !== null;
     f.step(dt, { velocityDecay: !handOn ? 11 : tool === 'pull' ? 16 : tool === 'etch' ? 3 : 5.5, dyeDecay: 0.0 });
-    f.render(this.light);
+    f.render({ ...this.light, mix: this.mixLevel });
     this.dirty = false;
     this.prev = { ...this.pos };
     this.quiet += dt;

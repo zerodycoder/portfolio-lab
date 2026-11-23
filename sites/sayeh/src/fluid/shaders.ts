@@ -216,6 +216,7 @@ uniform float uSeed;
 uniform vec2 uLightDir;
 uniform sampler2D uCrema;
 uniform float uPhoto;
+uniform float uMix;
 
 float hash(vec2 p) {
   p = fract(p * vec2(123.34, 456.21));
@@ -275,33 +276,84 @@ void main() {
     vec2 safe = 0.5 + sp * min(1.0, 0.92 / max(sl, 1e-4));
     float moved = smoothstep(0.002, 0.01, length(src - vUv));
     vec2 at = mix(vUv, safe, moved);
-    vec3 photo = texture(uCrema, at).rgb - textureLod(uCrema, at, 4.0).rgb + textureLod(uCrema, vUv, 4.0).rgb;
+    // Stretched crema loses some of its grain rather than smearing into streaks.
+    vec3 photo = (texture(uCrema, at).rgb - textureLod(uCrema, at, 4.0).rgb) * mix(1.0, 0.45, moved) + textureLod(uCrema, vUv, 4.0).rgb;
     crema = photo;
   }
 
-  // Steamed milk: ivory microfoam. Thin milk over crema reads as a tan halo, then the foam itself.
-  float foam = smoothstep(0.34, 0.66, m);
-  float thin = smoothstep(0.04, 0.32, m);
-  vec3 milk = vec3(0.975, 0.945, 0.89) - (noise(vUv * 120.0) - 0.5) * 0.035 - fbm(vUv * 22.0) * 0.03;
-  vec3 tan = mix(crema, vec3(0.80, 0.60, 0.40), 0.75);
+  // The canvas: milk that dives under the crema while pouring mixes into it, so the surface turns from bright crema to
+  // a softer caramel as the cup fills (keeping the crema's own texture). A ring by the wall stays darker, as in a real
+  // cup, where the milk never quite reaches the rim.
+  float lum = dot(crema, vec3(0.299, 0.587, 0.114));
+  vec3 caramel = vec3(0.58, 0.37, 0.21) * (0.78 + 0.9 * (lum - 0.42));
+  float mixHere = uMix * (1.0 - smoothstep(0.8, 0.97, d) * 0.7);
+  crema = mix(crema, caramel, mixHere * 0.85);
+
+  // Steamed milk is not paint: it is a glossy, slightly domed layer of microfoam. How deep inside the foam a point
+  // is (the average milk on two rings around it) sets how thick the foam is there: thick foam is bright ivory, the
+  // thin margin lets the coffee show through as a warm cream, and the dome catches the window as a soft sheen.
+  float foam = smoothstep(0.38, 0.6, m);
+  float thin = smoothstep(0.05, 0.36, m);
+  vec2 ld0 = normalize(uLightDir);
+  float ring1 = 0.0;
+  float ring2 = 0.0;
+  vec2 dome = vec2(0.0);
+  for (int i = 0; i < 12; i++) {
+    float a = float(i) * 0.5235988;
+    vec2 dir = vec2(cos(a), sin(a));
+    float s1 = texture(uDye, vUv + dir * uDyeTexel * 7.0).r;
+    float s2 = texture(uDye, vUv + dir * uDyeTexel * 16.0).r;
+    ring1 += s1;
+    ring2 += s2;
+    dome += dir * (s1 + s2);
+  }
+  ring1 /= 12.0;
+  ring2 /= 12.0;
+  float depth = smoothstep(0.45, 1.0, ring1 * 0.55 + ring2 * 0.45);
+  // The dome's slope points from the thick middle toward the edge; light it from the window.
+  vec3 dn = normalize(vec3(-dome * 0.22, 1.0));
+  vec3 Ld = normalize(vec3(ld0, 0.9));
+  float diffuse = dot(dn, Ld);
+  vec3 milk = mix(vec3(0.9, 0.8, 0.66), vec3(0.975, 0.95, 0.9), smoothstep(0.0, 0.7, depth));
+  milk *= 0.93 + 0.09 * diffuse;
+  // Glossy microfoam: a soft highlight on the side of the dome that faces the window.
+  float sheen = pow(max(0.0, dot(reflect(-Ld, dn), vec3(0.0, 0.0, 1.0))), 18.0);
+  milk += sheen * 0.05 * (1.0 - depth * 0.5);
+  // The finest bubbles, almost invisible, and a faint flow grain carried along with the foam.
+  vec2 flowUv = texture(uDye, vUv).ba;
+  milk -= (noise(vUv * 210.0) - 0.5) * 0.018 + (fbm(flowUv * vec2(30.0, 90.0)) - 0.5) * 0.02;
+
+  // Around every shape, crema is pushed up against the foam: a thin darker outline just outside the white.
+  float near = 0.0;
+  for (int i = 0; i < 8; i++) {
+    float a = float(i) * 0.7853982;
+    vec2 o = vec2(cos(a), sin(a)) * uDyeTexel;
+    near = max(near, texture(uDye, vUv + o * 2.5).r);
+    near = max(near, texture(uDye, vUv + o * 5.5).r * 0.7);
+  }
+  float outline = smoothstep(0.35, 0.85, near) * (1.0 - smoothstep(0.08, 0.38, m));
+  crema *= 1.0 - outline * 0.28;
+  // The foam stands proud: a soft shadow falls on the crema on the side away from the window.
+  float lit = texture(uDye, vUv + ld0 * uDyeTexel * 5.0).r;
+  crema *= 1.0 - smoothstep(0.45, 0.9, lit) * (1.0 - foam) * 0.14;
+
+  // Thin milk over crema: a narrow band of tan, then the foam itself.
+  vec3 tan = mix(crema, vec3(0.84, 0.68, 0.5), 0.72);
   vec3 col = mix(crema, tan, thin * (1.0 - foam));
   col = mix(col, milk, foam);
-  // A slightly darker line right on the edge of the foam, as in real latte art.
-  float edge = foam * (1.0 - foam) * 4.0;
-  col *= 1.0 - edge * 0.09;
-  // Where two pours meet inside the foam, a hairline of crema shows between them.
+
+  // Where two layers of foam meet (each pour, each swing of the jug), a hairline of crema shows between them: the
+  // lines of a rosetta's leaves and a tulip's stack.
   float gL = texture(uDye, vUv - tx).g;
   float gR = texture(uDye, vUv + tx).g;
   float gT = texture(uDye, vUv + ty).g;
   float gB = texture(uDye, vUv - ty).g;
-  float seam = smoothstep(0.035, 0.09, length(vec2(gR - gL, gT - gB))) * smoothstep(0.55, 0.85, min(min(mL, mR), min(mT, mB)));
-  col = mix(col, tan * 0.92, seam * 0.85);
+  float seam = smoothstep(0.035, 0.09, length(vec2(gR - gL, gT - gB))) * smoothstep(0.5, 0.82, min(min(mL, mR), min(mT, mB)));
+  col = mix(col, mix(crema, tan, 0.35), seam * 0.9);
 
-  // Relief: the foam stands a hair proud of the crema; lit from the window.
+  // The foam's edge, where it meets the crema, catches a little light on the window side.
   vec2 g = vec2(mR - mL, mT - mB);
-  vec3 n = normalize(vec3(-g * 1.8, 1.0));
-  vec3 L = normalize(vec3(uLightDir, 0.75));
-  col *= 0.9 + 0.12 * dot(n, L) / max(0.0001, L.z);
+  col += max(0.0, dot(normalize(-g + 1e-5), ld0)) * length(g) * 0.12 * (1.0 - foam * 0.5);
 
   // The meniscus: the liquid darkens and climbs the wall in a thin ring.
   float wallShade = mix(1.0, 0.64, smoothstep(0.84, 1.0, d));

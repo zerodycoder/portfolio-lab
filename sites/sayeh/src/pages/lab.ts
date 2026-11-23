@@ -1,8 +1,9 @@
 import { gsap } from 'gsap';
-import { $, $$, isNarrow, onVisible } from '@portfolio-lab/kit/dom';
+import { $, $$, isNarrow } from '@portfolio-lab/kit/dom';
 import type { PageFactory } from '../app';
 import { bySlug } from '../lib/catalog';
 import { brew, defaults, method, METHODS, steps, type MethodId, type Recipe, type Result } from '../lab/model';
+import { mountShot, shotHud } from '../ui/shot';
 
 const STORE = 'sayeh.lab.v1';
 
@@ -54,9 +55,9 @@ const lab: PageFactory = (app, _params, query) => {
     <p class="lede">Baristas judge a brew by two numbers: how much of the coffee dissolved (extraction) and how strong the cup is (TDS). Move the dials and watch your brew travel across the chart they use, toward the sweet spot.</p>
     ${coffee ? `<p class="lab-coffee"><span class="tag">Brewing ${coffee.name}</span> <a class="mono" href="/shop/${coffee.slug}">back to the bag</a></p>` : ''}
   </div>
-  <figure class="lab-film ${film ? '' : 'is-drawn'}">
-    ${film ? `<video data-film muted playsinline preload="none" poster="${film.poster ?? ''}"><source src="${isNarrow() && film.mp4Small ? film.mp4Small : film.mp4}" type="video/mp4" /></video>` : '<i class="lab-film__drip" aria-hidden="true"></i>'}
-    <figcaption class="mono"><span>18 g in · 36 g out · 28 s</span>${film ? '<button type="button" class="link-btn" data-replay>Pull another</button>' : ''}</figcaption>
+  <figure class="lab-film ${film ? '' : 'is-drawn'}" data-shot>
+    ${film ? `<video data-shot-video muted playsinline preload="none" poster="${film.poster ?? ''}"><source src="${isNarrow() && film.mp4Small ? film.mp4Small : film.mp4}" type="video/mp4" /></video>${shotHud(true)}` : '<i class="lab-film__drip" aria-hidden="true"></i>'}
+    <figcaption class="mono"><span>Espresso: 18 g in · 36 g out · 28 s</span>${film ? '<button type="button" class="link-btn" data-shot-again>Pull another</button>' : ''}</figcaption>
   </figure>
 </section>
 
@@ -381,32 +382,13 @@ const lab: PageFactory = (app, _params, query) => {
       render(false);
       app.coach.hint('sweet', 'Drag a dial and watch your brew move on the chart. <b>Aim for the green box.</b>', 7000, () => !touched);
 
-      // The espresso film plays once when it comes into view, then waits on the full cup.
-      const video = root.querySelector<HTMLVideoElement>('[data-film]');
-      let io: IntersectionObserver | null = null;
-      if (video) {
-        let played = false;
-        io = onVisible(
-          video,
-          (v) => {
-            if (v && !played) {
-              played = true;
-              video.preload = 'auto';
-              void video.play().catch(() => undefined);
-            }
-          },
-          '0px',
-          0.4,
-        );
-        root.querySelector('[data-replay]')?.addEventListener('click', () => {
-          video.currentTime = 0;
-          void video.play().catch(() => undefined);
-        });
-      }
+      // The espresso film pulls its shot once the visitor is in and it's on screen.
+      const shotEl = root.querySelector<HTMLElement>('[data-shot]');
+      const offShot = shotEl ? mountShot(shotEl, app) : () => undefined;
 
       return () => {
         window.clearInterval(timer);
-        io?.disconnect();
+        offShot();
       };
     },
   };

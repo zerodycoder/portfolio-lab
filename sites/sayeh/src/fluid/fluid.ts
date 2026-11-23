@@ -4,7 +4,7 @@ type Target = { tex: WebGLTexture; fbo: WebGLFramebuffer; w: number; h: number }
 type Double = { read: Target; write: Target; swap(): void };
 type Program = { prog: WebGLProgram; u: Record<string, WebGLUniformLocation | null> };
 
-export type Light = { tint: [number, number, number]; sheen: number; dir: [number, number] };
+export type Light = { tint: [number, number, number]; sheen: number; dir: [number, number]; mix?: number };
 
 export const PROBE_SIZE = 64;
 
@@ -304,6 +304,7 @@ export class Fluid {
     gl.uniform1f(pr.u.uSeed, this.seed);
     gl.uniform2f(pr.u.uLightDir, light.dir[0], light.dir[1]);
     gl.uniform1f(pr.u.uPhoto, this.crema ? 1 : 0);
+    gl.uniform1f(pr.u.uMix, light.mix ?? 0);
     if (this.crema) {
       gl.activeTexture(gl.TEXTURE1);
       gl.bindTexture(gl.TEXTURE_2D, this.crema);

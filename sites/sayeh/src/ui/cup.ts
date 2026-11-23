@@ -179,9 +179,10 @@ export class CupHost {
     if (!scene) return;
     const w = scene.clientWidth;
     const h = scene.clientHeight;
-    const narrow = w < 760;
-    // On phones the whole saucer (1.8× the liquid) stays on screen.
-    const r = narrow ? Math.min(w * 0.245, h * 0.13) : Math.min(h * 0.205, w * 0.15);
+    // Stacked layout (title above, tools below) on phones and upright tablets, matching the CSS media query. There
+    // the whole saucer (1.8× the liquid) stays on screen; on smaller landscape screens the cup leaves room for the copy.
+    const narrow = w <= 760 || (w <= 1080 && h > w);
+    const r = narrow ? Math.min(w * 0.245, h * 0.13) : Math.min(h * 0.205, w * (w < 1200 ? 0.13 : 0.15));
     const cx = narrow ? w * 0.5 : w * 0.6;
     const cy = narrow ? h * 0.44 : h * 0.53;
     this.geom = { w, h, cx, cy, r };

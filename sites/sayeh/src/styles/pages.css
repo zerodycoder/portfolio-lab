@@ -2029,6 +2029,12 @@
     order: -1;
   }
 
+  .lab__chart svg {
+    display: block;
+    max-width: 620px;
+    margin: 0 auto;
+  }
+
   .shop-grid {
     grid-template-columns: repeat(2, 1fr);
   }

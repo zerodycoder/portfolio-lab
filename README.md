@@ -7,16 +7,19 @@ TypeScript project (npm workspaces). Plumbing they share lives in `packages/kit`
 | --- | --- | --- |
 | `sites/rakhsh` | RAKHSH, a fictional electric motorcycle (cinematic, generated media) | Live at [rakhsh.zerodycoder.com](https://rakhsh.zerodycoder.com) |
 | `sites/nibbo` | NIBBO, a fictional coding robot for kids (live 3D, everything drawn by code) | Live at [nibbo.zerodycoder.com](https://nibbo.zerodycoder.com) |
+| `sites/sayeh` | SAYEH, a fictional shade-grown coffee roaster and café (multi-page, fluid simulation over photos) | Built, not deployed yet |
 
 ## Commands
 
 ```bash
 npm install                                  # once, at the repo root
-npm run dev -w nibbo                         # dev server (rakhsh :5173, nibbo :5175)
+npm run dev -w nibbo                         # dev server (rakhsh :5173, nibbo :5175, sayeh :5176)
 npm run build -w nibbo                       # type-check + production build into sites/nibbo/dist
-npm run preview -w nibbo                     # serve the build (rakhsh :4173, nibbo :4175)
+npm run preview -w nibbo                     # serve the build (rakhsh :4173, nibbo :4175, sayeh :4176)
 node tools/process-rakhsh.mjs                # convert assets-inbox/rakhsh → sites/rakhsh/public/media + manifest.json
+node tools/process-sayeh.mjs                 # same for assets-inbox/sayeh → sites/sayeh/public/media (measures the cup photo)
 node tools/og-nibbo.mjs                      # render NIBBO's 1200×630 social image from the live page (preview running)
+node tools/og-sayeh.mjs                      # render SAYEH's social image: a rosetta poured on the live page
 node tools/shoot.mjs <url> tools/out/<run> --site=nibbo [--browser=msedge] [--sound] [--only=desktop|mobile] [--sections=…] [--resolve=host:ip]
 ```
 
@@ -24,13 +27,17 @@ node tools/shoot.mjs <url> tools/out/<run> --site=nibbo [--browser=msedge] [--so
 section on desktop (1440×900) and mobile (390×844), and writes `report.json`: console errors, failed requests, video
 playback, the audio engine state (`--sound` enters with sound), horizontal overflow, and whatever the site's probe
 returns. Each site has a scenario in `tools/scenarios/<site>.mjs` with its default sections, its actions and its
-probe. A section is written `id[@fraction][^edge][:action][~seconds]`:
+probe. A section is written `id[@fraction][^edge][:action][~seconds]`, and a spec that starts with `/` navigates a
+multi-page site to that path (through its router, `window.__go`) before the sections that follow:
 
 - `@0.4` is a point through a pinned section's scroll (or through the section's height);
 - `^0.5` parks the section's top half a screen down, the hand-over between two sections (where layouts collide);
 - `:action` runs one of the scenario's actions. NIBBO's drive the real thing: `toss` and `longpress` pick the robot
   up (with real touch events on mobile, and check the page didn't scroll), `dizzy`, `poke`, `tricks`, `xray`,
-  `mood`, `solve` and `loop` (build and run programs), `custom`, `name` and `pack`;
+  `mood`, `solve` and `loop` (build and run programs), `custom`, `name` and `pack`. SAYEH's pour and etch on the
+  cup, `swirl` it (two-finger twist with real touch events on phones, circles on the saucer with a mouse), check
+  that a `swipe` beside the cup still scrolls, set the hour (`day`, `golden`, `night`), `add` to the bag, place an
+  `order` (empty first, so the errors show), `dial` the Brew Lab, start the `timer`, fly to a `farm` and pick a `note`;
 - `~6` waits six extra seconds before the screenshot.
 
 `--resolve=host:ip` pins a hostname for the browser, to test a new subdomain before local DNS caches catch up.
@@ -110,11 +117,64 @@ are generated in code. The only image is the social preview, and that is a scree
   when clicked), a spinning "made entirely of code" stamp, a turntable and "Surprise me" in the configurator, a
   "what happens next" timeline in adoption, and a footer where the lights go out and stars come up.
 
+## SAYEH architecture
+
+A fictional roaster and café in Lisbon ("sayeh" is Persian for shade: every coffee is shade-grown). Generated
+photographs and films (the user's), with code doing everything that moves.
+
+- **Pages, not sections.** The first multi-page showcase: a small History-API router (`src/lib/router.ts`) with
+  code-split pages (`src/pages/*`, prefetched on hover), real URLs (`/shop/hambela-shade`, `/origins?farm=kenya`),
+  scroll restored on Back, and every navigation run through the View Transitions API: pages cross-fade and a coffee
+  bag morphs from the shop grid into its product page (shared `view-transition-name`). `vercel.json` rewrites deep
+  links to the app. Sound, cart, stamps and the latte all survive navigation.
+- **The cup** (`src/fluid`, `src/ui/cup.ts`): a WebGL2 stable-fluids solver on half-float textures (advection,
+  pressure projection, circular walls). Pouring is a mass source in the divergence, so milk really spreads; a moving
+  stream carries momentum, the pull-through drags a cleft and a point, an etching pen draws crema lines, and every new
+  layer (each pour, and each swing of a wiggle, by hand too) is tagged so a hairline of crema shows where layers meet:
+  a rosetta's leaves, a tulip's stack. Milk that dives under turns the crema caramel as the cup fills, a darker ring
+  stays by the rim, and crema pushed against the foam outlines every shape. The canvas sits exactly on the photo's
+  liquid (`tools/process-sayeh.mjs` finds the crema circle by colour and fits it), and the photo's own crema is the
+  simulation's surface: its texture coordinates are advected with the flow. Swirl by circling the saucer (mouse), a
+  two-finger twist or tilting the phone. Finished pours are read back from the GPU (64²) and judged for symmetry
+  (best mirror axis, drawn on the cup), contrast and coverage.
+- **The home page tells the story with the footage**: the shade (hands and cherries), the four farms (photo tiles),
+  the roast (the film behind a scroll-driven roast curve), the shot (the espresso film with a live shot clock, scale
+  and ratio laid over it, `src/ui/shot.ts`), the coffees, and the café, whose evening photo fades in with the light.
+- **Brew Lab** (`src/lab/model.ts`, `src/pages/lab.ts`): first-order extraction kinetics where grind and temperature
+  set the rate and, for pour-over and espresso, the grind also sets the contact time. Outputs extraction yield and
+  TDS on the barista's brewing control chart, a taste radar, advice, and a brew-along timer with chimes. Water
+  temperature drives Fraunces' weight and SOFT axes.
+- **Labels drawn from data** (`src/art/label.ts`): each bag is rendered on canvas; its art is the farm's terrain as
+  marching-squares contour lines (more for higher farms), coloured through the tasting notes, with harvest months
+  and roast level.
+- **Origins** (`src/map`): a dot-matrix world (Equal Earth, D3-geo, Natural Earth 110m land) with the coffee belt, the
+  farms and great-circle routes to Lisbon; picking a farm glides the projection there. A flavour wheel (families and
+  notes) lists the coffees that carry a note.
+- **Commerce** (`src/lib/cart.ts`): sizes, grinds, subscriptions (−12%), free-shipping meter, roast and delivery
+  dates from the roast days, and a checkout with validation but no payment fields (it is a demo).
+- **Light from the visitor's clock** (`src/lib/daylight.ts`): a simple solar model turns the local hour and date into
+  sun height and direction; that sets the palette (light, golden, night), the leaf shadows' angle and length, the
+  light on the cup and the café photo (the night photo fades in). The sun dial previews any hour.
+- **Discovering things** (`src/lib/stamps.ts`, `src/ui/coach.ts`): a loyalty card with ten stamps; a full card takes
+  15% off the bag. Hints suggest the next thing after a quiet moment.
+- **Sound** (`src/lib/sound.ts`): milk pouring with bubbles, an etching whisper, a slosh, porcelain clinks, a rubber
+  stamp, paper, a bag of beans, first-crack pops, a timer bell. Measured peaks sit between −22 and −37 dBFS.
+
+### Media workflow
+
+Put the files in `assets-inbox/sayeh/` (git-ignored; matched by prefix, any extension): `a-cup` (top-down cup,
+plain crema), `b-roast` (video), `c-ethiopia`, `c-colombia`, `c-kenya`, `c-guatemala`, `d-hands`, `e-espresso`
+(video; the delivered file's first 10 s duplicate the roast clip, so only 10–20 s is used), `f-cafe-day` and
+`f-cafe-night` (aligned). Run `node tools/process-sayeh.mjs`: WebP stills, H.264 (desktop and mobile), a seamless
+roast loop, the cup's crema crop for the simulation and `manifest.json` with the measured liquid circle. Anything
+missing falls back to a drawn version (the table and cup, the bean drum, cherries).
+
 ## Deploying
 
 Each site is its own Vercel project with its root directory set to `sites/<name>`; Vercel installs the workspace
-from the repo root, so `packages/kit` is linked in. Every push to `main` deploys both sites. Each site has a subdomain
-of zerodycoder.com, pointed at Vercel with a CNAME record.
+from the repo root, so `packages/kit` is linked in. Every push to `main` deploys the sites that have a project
+(RAKHSH and NIBBO; SAYEH once its project exists). Each site has a subdomain of zerodycoder.com, pointed at Vercel
+with a CNAME record.
 
 ## RAKHSH
 

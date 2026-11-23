@@ -4,9 +4,10 @@ import { $, $$, clamp, finePointer, isNarrow } from '@portfolio-lab/kit/dom';
 import type { PageFactory } from '../app';
 import { bagImage } from '../art/label';
 import type { Preset, Tool } from '../fluid/latte';
-import { COFFEES } from '../lib/catalog';
+import { bySlug, COFFEES, ORIGINS } from '../lib/catalog';
 import { cafeStatus } from '../lib/cafe';
 import { longDate, money, nextRoast } from '../lib/format';
+import { mountShot, SHOT, shotHud } from '../ui/shot';
 
 const ROAST_MIN = 11;
 const CRACK = 8.67;
@@ -83,7 +84,9 @@ const home: PageFactory = (app) => {
   const fine = finePointer();
   const hasRoastVideo = !!app.media.roast;
   const hasHands = !!app.media.hands;
-  const cafe = app.media.cafe?.day;
+  const cafeDay = app.media.cafe?.day;
+  const cafeNight = app.media.cafe?.night;
+  const film = app.media.espresso;
 
   // The roast chart's axes (11 min × 80–220 °C) in a 600×340 box.
   const X = (t: number): number => 40 + (t / ROAST_MIN) * 540;
@@ -142,6 +145,24 @@ const home: PageFactory = (app) => {
   </ul>
 </section>
 
+<section class="farms" id="farms">
+  <div class="section-head">
+    <p class="eyebrow mono">Where it grows</p>
+    <h2 class="h2">Four farms,<br /><em>four forests.</em></h2>
+    <p class="section-head__aside">Each one kept its trees. ${finePointer() ? 'Hover' : 'Tap'} a farm to meet it and the coffee it grows.</p>
+  </div>
+  <ul class="farm-strip">
+    ${ORIGINS.map((o) => {
+      const c = bySlug(o.coffee)!;
+      const photo = app.media.origins?.[o.id];
+      return `<li><a class="farm-tile ${photo ? '' : 'is-drawn'}" href="/origins?farm=${o.id}">
+        ${photo ? `<img src="${photo}" alt="Shade-grown coffee in ${o.region}, ${o.country}" loading="lazy" />` : ''}
+        <span class="farm-tile__text"><small class="mono">${o.region} · ${o.altitude.toLocaleString('en-US')} m</small><b>${o.country}</b><em>${c.name} · ${c.notes.join(', ')}</em></span>
+      </a></li>`;
+    }).join('')}
+  </ul>
+</section>
+
 <section class="roast" id="roast" aria-label="How we roast">
   <div class="roast__pin">
     <div class="roast__media">
@@ -183,6 +204,20 @@ const home: PageFactory = (app) => {
   </div>
 </section>
 
+${film ? `<section class="shot" id="shot">
+  <div class="shot__film" data-shot>
+    <video data-shot-video muted playsinline preload="none" poster="${film.poster ?? ''}"><source src="${isNarrow() && film.mp4Small ? film.mp4Small : film.mp4}" type="video/mp4" /></video>
+    ${shotHud()}
+    <button type="button" class="chip-btn chip-btn--solid shot__again" data-shot-again>Pull another shot</button>
+  </div>
+  <div class="shot__text">
+    <p class="eyebrow mono">Then, pulled to order</p>
+    <h2 class="h2">${SHOT.dose} grams in,<br /><em>${SHOT.out} out.</em></h2>
+    <p>Every espresso at the bar is weighed and timed: ${SHOT.dose} g of Under the Cedar, ${SHOT.out} g in the cup, ${SHOT.time} seconds. Thick and dark at first, then the stream turns gold. That’s when we stop.</p>
+    <a class="link-arrow" href="/lab">Pull your own in the Brew Lab</a>
+  </div>
+</section>` : ''}
+
 <section class="featured" id="coffees">
   <div class="section-head">
     <p class="eyebrow mono">On the shelf this week</p>
@@ -212,10 +247,20 @@ const home: PageFactory = (app) => {
     </svg>
     <span><p class="eyebrow mono">Brew Lab</p><b class="h3">Your kitchen is a lab.</b><span>Grind, dose, water and time in, extraction and strength out, plotted on the barista’s control chart.</span><em class="link-arrow">Dial in a brew</em></span>
   </a>
-  <a class="teaser teaser--visit" href="/visit">
-    <span class="teaser__photo ${cafe ? '' : 'is-drawn'}">${cafe ? `<img src="${cafe}" alt="Inside the SAYEH café in Lisbon" loading="lazy" />` : '<i class="window" aria-hidden="true"></i>'}</span>
-    <span><p class="eyebrow mono">Visit</p><b class="h3">Under the cedar, Príncipe Real.</b><span class="status" data-status></span><em class="link-arrow">Hours, menu, directions</em></span>
-  </a>
+</section>
+
+<section class="cafe-band" id="cafe">
+  <div class="cafe-band__photo ${cafeDay ? '' : 'is-drawn'}">
+    ${cafeDay ? `<img class="cafe-band__day" src="${cafeDay}" alt="Inside the SAYEH café: a wooden counter, the espresso machine and blue azulejo tiles" loading="lazy" />` : ''}
+    ${cafeNight ? `<img class="cafe-band__night" src="${cafeNight}" alt="" aria-hidden="true" loading="lazy" />` : ''}
+  </div>
+  <div class="cafe-band__copy wrap">
+    <p class="eyebrow mono">The café · Príncipe Real, Lisbon</p>
+    <h2 class="h1">Come sit under<br />the <em>cedar.</em></h2>
+    <p class="status" data-status></p>
+    <p class="cafe-band__lede">This photo is lit like your page: it follows your clock. <button type="button" class="link-btn" data-open-sun>Drag the sun</button> to see the lamps come on.</p>
+    <a class="btn btn--light" href="/visit">Hours, menu and directions</a>
+  </div>
 </section>`,
 
     mount(root) {
@@ -303,8 +348,8 @@ const home: PageFactory = (app) => {
                 app.sound.bright();
               }
               if (e.hand) {
-                app.coach.hint('etch', 'Try <b>Etch</b>: drag through the foam to draw a line.', 3500, () => !app.stamps.has('etch'));
-                app.coach.hint('swirl', fine ? 'Drag circles on the saucer to <b>swirl</b> the cup.' : '<b>Twist two fingers</b> on the coffee to swirl it, or tilt your phone.', 9000, () => !app.stamps.has('swirl'));
+                app.coach.hint('etch', 'Try <b>Etch</b>: drag through the foam to draw a line.', 3500, () => !app.stamps.has('etch') && inHero());
+                app.coach.hint('swirl', fine ? 'Drag circles on the saucer to <b>swirl</b> the cup.' : '<b>Twist two fingers</b> on the coffee to swirl it, or tilt your phone.', 9000, () => !app.stamps.has('swirl') && inHero());
               }
               break;
             }
@@ -323,8 +368,8 @@ const home: PageFactory = (app) => {
             /* private mode */
           }
           window.setTimeout(() => alive && cup.play('heart'), 500);
-          app.coach.hint('pour', fine ? 'Your turn: <b>hold the mouse on the coffee</b> to pour.' : 'Your turn: <b>hold your finger on the coffee</b> to pour.', 6200, () => !userPoured);
-        } else app.coach.hint('pour', fine ? '<b>Hold the mouse on the coffee</b> to pour milk.' : '<b>Hold your finger on the coffee</b> to pour milk.', 4000, () => !userPoured);
+          app.coach.hint('pour', fine ? 'Your turn: <b>hold the mouse on the coffee</b> to pour.' : 'Your turn: <b>hold your finger on the coffee</b> to pour.', 6200, () => !userPoured && inHero());
+        } else app.coach.hint('pour', fine ? '<b>Hold the mouse on the coffee</b> to pour milk.' : '<b>Hold your finger on the coffee</b> to pour milk.', 4000, () => !userPoured && inHero());
       });
 
       ctx.add(() => {
@@ -423,7 +468,22 @@ const home: PageFactory = (app) => {
           });
       });
 
-      // The visit teaser's live status.
+      // Hints about the cup only make sense while the cup is on screen.
+      const inHero = (): boolean => window.scrollY < window.innerHeight * 0.6;
+      const onScroll = (): void => {
+        if (!inHero()) app.coach.hide();
+      };
+      window.addEventListener('scroll', onScroll, { passive: true });
+
+      // The espresso film and its live readout.
+      const shotEl = root.querySelector<HTMLElement>('[data-shot]');
+      const offShot = shotEl ? mountShot(shotEl, app) : () => undefined;
+      root.querySelector('[data-open-sun]')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        document.querySelector<HTMLButtonElement>('[data-sun-btn]')?.click();
+      });
+
+      // The café's live status.
       const status = $('[data-status]', root);
       const tick = (): void => {
         const s = cafeStatus();
@@ -434,6 +494,8 @@ const home: PageFactory = (app) => {
 
       return () => {
         alive = false;
+        offShot();
+        window.removeEventListener('scroll', onScroll);
         window.clearInterval(statusTimer);
         offs.forEach((f) => f());
         ctx.revert();

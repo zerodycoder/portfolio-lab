@@ -153,8 +153,8 @@ export class Sound extends AudioEngine {
     const l = this.live();
     if (!l) return;
     const t = l.ctx.currentTime;
-    this.tone(l, t, 'sine', 150, 70, 0.16, 0.004, 0.16);
-    this.noiseHit(l, t, 'lowpass', 900, 300, 0.8, 0.06, 0.002, 0.08);
+    this.tone(l, t, 'sine', 150, 70, 0.09, 0.004, 0.16);
+    this.noiseHit(l, t, 'lowpass', 900, 300, 0.8, 0.04, 0.002, 0.08);
     this.noiseHit(l, t + 0.01, 'bandpass', 2600, 1800, 1.2, 0.02, 0.003, 0.06);
   }
 
@@ -185,8 +185,8 @@ export class Sound extends AudioEngine {
     const n = Math.round(6 + intensity * 10);
     for (let i = 0; i < n; i++) {
       const at = t + rand(0, 1.4);
-      this.noiseHit(l, at, 'bandpass', rand(1500, 3400), rand(900, 1500), 2.5, rand(0.02, 0.05) * intensity, 0.0008, rand(0.012, 0.03));
-      this.tone(l, at, 'sine', rand(300, 520), 200, 0.012 * intensity, 0.001, 0.02);
+      this.noiseHit(l, at, 'bandpass', rand(1500, 3400), rand(900, 1500), 2.5, rand(0.05, 0.1) * intensity, 0.0008, rand(0.012, 0.03));
+      this.tone(l, at, 'sine', rand(300, 520), 200, 0.025 * intensity, 0.001, 0.02);
     }
   }
 
