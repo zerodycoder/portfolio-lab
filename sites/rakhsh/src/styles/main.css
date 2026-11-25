@@ -1676,38 +1676,73 @@ dd {
   position: absolute;
   left: var(--gutter);
   bottom: clamp(28px, 6vh, 64px);
+  width: clamp(240px, 22vw, 340px);
   display: grid;
-  gap: 8px;
-  padding: 16px 18px;
+  gap: 12px;
+  padding: 18px 22px 20px;
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: rgba(7, 7, 7, 0.45);
+  border-radius: 10px;
+  background: rgba(7, 7, 7, 0.5);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
 
-.ride__hud div {
-  display: grid;
-  grid-template-columns: 74px 52px auto;
+/* The speed is the point of the HUD: big, in the finish's accent. */
+.ride__spd {
+  display: flex;
   align-items: baseline;
   gap: 10px;
+  margin: 0;
   color: var(--muted);
+  text-transform: uppercase;
 }
 
-.ride__hud b {
+.ride__spd b {
+  font-size: clamp(56px, 6.4vw, 96px);
+  line-height: 0.9;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  transition: text-shadow 0.3s;
+}
+
+.ride.is-fast .ride__spd b {
+  text-shadow: 0 0 24px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+.ride__bar {
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(236, 230, 220, 0.14);
+  overflow: hidden;
+}
+
+.ride__bar i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+}
+
+.ride__meta {
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted);
+  text-transform: uppercase;
+  font-size: 12px;
+}
+
+.ride__meta b {
   color: var(--fg);
   font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-.ride__hud div:first-child b {
-  color: var(--accent);
 }
 
 .ride__hint {
-  margin-top: 6px;
-  color: var(--dim);
-  font-size: 10px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .ride__cap {
@@ -2461,16 +2496,14 @@ dd {
   }
 
   .ride__hud {
-    padding: 12px 14px;
-    gap: 6px;
+    right: var(--gutter);
+    width: auto;
+    padding: 14px 16px 16px;
+    gap: 10px;
   }
 
-  .ride__hud div {
-    grid-template-columns: 62px 40px auto;
-  }
-
-  .ride__hint {
-    display: none;
+  .ride__spd b {
+    font-size: 56px;
   }
 
   .ride__cap {

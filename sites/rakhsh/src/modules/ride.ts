@@ -8,13 +8,17 @@ type Streak = { x: number; y: number; len: number; speed: number; a: number; war
 
 /**
  * Ride: the night-ride film full bleed, two rows of type sliding against each other, light streaks,
- * and a HUD whose speed reading is your actual scroll velocity.
+ * and a HUD (a big speed reading and a bar) driven by your actual scroll velocity.
  */
 export function initRide(media: Media, lenis: Lenis, reduced: boolean): void {
   const root = $('[data-ride]');
   const stage = $('[data-ride-media]', root);
   const canvas = $<HTMLCanvasElement>('[data-ride-lines]', root);
   const hud = $('[data-hud-speed]', root);
+  const bar = $('[data-hud-bar]', root);
+  const hint = $('[data-hud-hint]', root);
+  // Phones scroll with a swipe, so the hint says so.
+  if (matchMedia('(pointer: coarse)').matches) hint.textContent = 'Swipe faster. Swipe speed is road speed.';
   const rows = $$('[data-row]', root);
 
   let video: HTMLVideoElement | null = null;
@@ -78,6 +82,8 @@ export function initRide(media: Media, lenis: Lenis, reduced: boolean): void {
     if (text !== last) {
       hud.textContent = text;
       last = text;
+      bar.style.transform = `scaleX(${(shown / 210).toFixed(3)})`;
+      root.classList.toggle('is-fast', shown > 120);
     }
     if (!ctx || reduced) return;
     const [r, g, b] = finishStore.rgb();

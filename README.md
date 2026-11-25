@@ -290,6 +290,7 @@ record.
   with the reservation form.
 - `src/modules/*` — one module per section: gate, hero, legend, machine (frame scrubbing on canvas), ignite
   (hold-to-accelerate gauge with procedural lightning; 0→100 km/h is tuned to 2.9 s), details (scroll-driven
-  horizontal carousel on every screen size), specs, ride
-  (scroll velocity drives the HUD), config (lightning-edge wipe), reserve (printable build ticket, PNG download).
+  horizontal carousel on every screen size), specs, ride (scroll velocity drives the HUD: a big speed readout and a
+  bar in the finish colour, with a "scroll faster" hint), config (lightning-edge wipe), reserve (printable build
+  ticket, PNG download).
 - Smooth scrolling is Lenis on GSAP's ticker; scroll-linked motion uses ScrollTrigger.
