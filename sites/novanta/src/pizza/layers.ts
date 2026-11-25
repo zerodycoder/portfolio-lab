@@ -23,7 +23,8 @@ type Channel = 0 | 1 | 2;
 const CH = ['255,0,0', '0,255,0', '0,0,255'];
 
 function blank(size: number): { c: HTMLCanvasElement; g: Ctx } {
-  const k = canvas(size);
+  // Coverage and the cheese pull read these back: CPU-side canvases.
+  const k = canvas(size, size, true);
   k.g.fillStyle = '#000';
   k.g.fillRect(0, 0, size, size);
   return k;

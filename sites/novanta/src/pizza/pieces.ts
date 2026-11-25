@@ -3,6 +3,7 @@ import { canvas } from '../lib/canvas';
 import { sheetOf, type Kind } from './catalog';
 import { sheet, type Sheet } from './sprites';
 import { GLSL_NOISE, GLSL_WEDGE } from './surface';
+import { slice } from '../lib/idle';
 
 /**
  * A topping piece is a small height field cut out of its sprite: the silhouette comes from the sprite's alpha, and
@@ -39,7 +40,7 @@ function profile(kind: Kind, d: number): number {
 
 function buildVariant(kind: Kind, sh: Sheet, cellIndex: number): Variant | null {
   const cell = sh.cells[cellIndex];
-  const { g } = canvas(G);
+  const { g } = canvas(G, G, true);
   g.drawImage(sh.image, cell.x, cell.y, cell.w, cell.h, 0, 0, G, G);
   const data = g.getImageData(0, 0, G, G).data;
   const alpha = new Float32Array(G * G);
@@ -164,8 +165,16 @@ export function loadKind(kind: Kind, base: string): Promise<KindAssets> {
       texture.colorSpace = THREE.SRGBColorSpace;
       texture.anisotropy = 8;
       texture.needsUpdate = true;
-      const variants = sh.cells.map((_, i) => buildVariant(kind, sh, i)).filter((v): v is Variant => !!v);
-      return { kind, sheet: sh, texture, variants };
+      return (async () => {
+        const variants: Variant[] = [];
+        for (let i = 0; i < sh.cells.length; i++) {
+          // Each variant reads pixels and builds a mesh: one per quiet moment.
+          await slice();
+          const v = buildVariant(kind, sh, i);
+          if (v) variants.push(v);
+        }
+        return { kind, sheet: sh, texture, variants };
+      })();
     });
     assets.set(kind.id, p);
   }

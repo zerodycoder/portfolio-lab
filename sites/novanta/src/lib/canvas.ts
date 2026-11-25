@@ -2,11 +2,12 @@ import * as THREE from 'three';
 
 export type Ctx = CanvasRenderingContext2D;
 
-export function canvas(w: number, h = w): { c: HTMLCanvasElement; g: Ctx } {
+/** `readback`: the canvas's pixels will be read (getImageData); keep it in CPU memory so reads don't stall the GPU. */
+export function canvas(w: number, h = w, readback = false): { c: HTMLCanvasElement; g: Ctx } {
   const c = document.createElement('canvas');
   c.width = w;
   c.height = h;
-  const g = c.getContext('2d', { willReadFrequently: false });
+  const g = c.getContext('2d', { willReadFrequently: readback });
   if (!g) throw new Error('2D canvas unavailable');
   return { c, g };
 }

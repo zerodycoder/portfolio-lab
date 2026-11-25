@@ -16,6 +16,7 @@ import type { Stage } from '../world/stage';
 import type { Input, Pt } from './input';
 import type { Stamps } from './stamps';
 import { clearNotes, euro, isPhone, note, setPlace, spriteChip, wait } from './ui';
+import { hurry } from '../lib/idle';
 
 export type StepId = 'impasto' | 'condimenti' | 'forno' | 'taglio' | 'consegna';
 export const STEPS: { id: StepId; it: string; en: string }[] = [
@@ -496,7 +497,7 @@ export class Kitchen {
 
   private async condimenti(): Promise<void> {
     const p = this.pizza;
-    await p.preload();
+    await hurry(() => p.preload());
     p.group.position.copy(BOARD_SPOT);
     p.group.rotation.set(0, 0, 0);
     this.box.group.visible = false;
@@ -1064,7 +1065,7 @@ export class Kitchen {
 
   private async taglio(): Promise<void> {
     const p = this.pizza;
-    await p.preload();
+    await hurry(() => p.preload());
     this.box.group.visible = false;
     p.group.position.copy(BOARD_SPOT);
     this.c.rig.go('banco', 1);
@@ -1324,7 +1325,7 @@ export class Kitchen {
 
   /** Builds a classic in one go (stretched, sauced, topped) and sends it to the oven. */
   async bakeClassic(cl: Classic): Promise<void> {
-    await this.pizza.preload();
+    await hurry(() => this.pizza.preload());
     this.fresh();
     this.classic = cl;
     this.step = 'impasto';

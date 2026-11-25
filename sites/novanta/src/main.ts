@@ -35,6 +35,7 @@ import { BOARD_SPOT, buildRoom } from './world/room';
 import { Stage } from './world/stage';
 import { LITE, mediaUrl, preferLite, webgl2 } from './lib/quality';
 import { batchStatic } from './world/batch';
+import { hurry, setBusy } from './lib/idle';
 
 const base = import.meta.env.BASE_URL;
 type Route = 'strada' | 'sala' | 'menu' | 'famiglia' | 'lievito' | 'fronte' | StepId | 'viaggio' | 'casa';
@@ -306,6 +307,9 @@ async function boot(): Promise<void> {
 
   // Every shader the site will use is compiled now, in the background and for the buffer the scene really renders
   // into; only then does the first frame draw (otherwise that frame compiles them all at once and freezes the tab).
+  // The physics engine (1.5 MB of WebAssembly) downloads and compiles while the loader is still up: the network is
+  // free by now and its compile pause can't be seen. The gate doesn't wait for it.
+  void getRapier();
   say('Warming up the oven…');
   await stage.warm((f) => step(0.62 + f * 0.37));
   stage.start();
@@ -459,7 +463,7 @@ async function boot(): Promise<void> {
     if (!saved) return go('sala');
     // A reload loses the pizza in memory: rebuild it from what was saved when it was sent.
     if (!pizza.pieces.length && saved.pizza) {
-      await pizza.preload();
+      await hurry(() => pizza.preload());
       await pizza.restore(saved.pizza);
       new Bake(pizza).applyAll();
     }
@@ -545,8 +549,8 @@ async function boot(): Promise<void> {
     });
   }
   const idle = (window as unknown as { requestIdleCallback?: (cb: () => void) => void }).requestIdleCallback ?? ((cb: () => void) => setTimeout(cb, 1500));
+  setBusy(() => rig.moving);
   idle(() => {
-    void getRapier();
     void pizza.preload();
     ['p-1958', 'p-street', 'p-family'].forEach((n) => {
       const img = new Image();

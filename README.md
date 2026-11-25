@@ -217,7 +217,9 @@ the street into the dining room and the kitchen, and out on a delivery.
   that looks the same into one, so the dining room draws about 220 times a frame instead of almost 800. Shadow maps are
   redrawn only while something that casts a shadow can move (the kitchen, the doorstep). No screen-space ambient
   occlusion and no transmission (refractive glass): each would draw the whole scene once more every frame. The dough
-  is rebuilt only while it moves, with normals computed straight from its grid.
+  is rebuilt only while it moves, with normals computed straight from its grid. Background work (building the
+  toppings' pieces) runs in small slices in idle time and waits while the camera moves (`src/lib/idle.ts`); Rapier
+  downloads and compiles behind the loader. Canvases whose pixels are read back are kept in CPU memory.
 - **Lite mode** (`src/lib/quality.ts`): for older and low-memory phones (4 GB or less, 4 cores or fewer, iOS before
   17), `?lite`, or remembered after a lost WebGL context or a slow first visit: half-size media from the `*-lite`
   folders (`tools/make-novanta-lite.mjs`), half-size drawn art, 9 lights instead of 19, a lower pixel ratio and

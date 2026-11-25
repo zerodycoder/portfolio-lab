@@ -84,11 +84,8 @@ export class Pizza {
   /** Builds every topping's pieces (sprites → geometry). Once; later calls wait for the same work. */
   preload(): Promise<void> {
     this.loading ??= (async () => {
-      for (const k of KINDS) {
-        this.kinds.set(k.id, await loadKind(k, this.base));
-        // One kind per frame: the page stays responsive while the pieces are built.
-        await new Promise((r) => requestAnimationFrame(r));
-      }
+      // Variants are built in quiet moments (lib/idle.ts); a step that needs them wraps this in hurry().
+      for (const k of KINDS) this.kinds.set(k.id, await loadKind(k, this.base));
     })();
     return this.loading;
   }
