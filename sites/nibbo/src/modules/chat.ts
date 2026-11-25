@@ -9,7 +9,7 @@ import { LedFace, type Mood } from '../three/face';
  * goes with the line; bubbles type in as they scroll into view, and the 3D robot pulls the same face (and chirps
  * it). The visitor's replies make it tilt its head and listen.
  */
-export function initChat(o: { director: Director; brain: Brain; sound: Sound; ledHex: string }): { recolor(hex: string): void } {
+export function initChat(o: { director: Director; brain: Brain; sound: Sound; ledHex: string }): { recolor(hex: string): void; update(): void } {
   const { director, brain, sound } = o;
   director.add({ id: 'hello', el: $('[data-slot="hello"]'), mood: 'idle', draggable: true });
 
@@ -65,7 +65,41 @@ export function initChat(o: { director: Director; brain: Brain; sound: Sound; le
   );
   bubbles.forEach((b) => io.observe(b));
 
+  // Phones: the conversation scrolls up under Nibbo's curtain. Each bubble fades out as it reaches the curtain, so
+  // no half-covered bubble edge shows below it.
+  const phone = matchMedia('(max-width: 760px)');
+  const stick = $('.chat__stick');
+  const section = $('#hello');
+  let faded = false;
+  const FADE = 90;
+
   return {
+    update() {
+      const r = section.getBoundingClientRect();
+      const active = phone.matches && r.bottom > 0 && r.top < innerHeight;
+      if (!active) {
+        if (faded) {
+          bubbles.forEach((b) => {
+            b.style.opacity = '';
+            b.style.transition = '';
+          });
+          faded = false;
+        }
+        return;
+      }
+      faded = true;
+      // The curtain is solid down to 84% of its height, then fades out.
+      const s = stick.getBoundingClientRect();
+      const line = s.top + s.height * 0.84;
+      bubbles.forEach((b) => {
+        if (!b.classList.contains('is-in')) return;
+        const top = b.getBoundingClientRect().top;
+        const k = Math.min(1, Math.max(0, (top - line) / FADE));
+        // Follow the scroll directly (the bubble's own opacity transition is for popping in).
+        b.style.opacity = k < 1 ? k.toFixed(3) : '';
+        b.style.transition = k < 1 ? 'none' : '';
+      });
+    },
     recolor(hex) {
       avatars.forEach(({ face, mood }) => {
         face.setColor(hex);

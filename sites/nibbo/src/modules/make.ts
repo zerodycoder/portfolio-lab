@@ -47,13 +47,21 @@ export function initMake(o: { director: Director; brain: Brain; robot: Robot; so
     mood: 'happy',
     draggable: false,
     yaw: -18,
-    enter: () => {
+  });
+
+  // The turntable rises under Nibbo once it has landed in the configurator (not mid-flight, where on a phone it
+  // would pop up at the screen edge over the text), and sinks away when it leaves.
+  let tableUp = false;
+  const setTable = (up: boolean): void => {
+    if (up === tableUp) return;
+    tableUp = up;
+    if (up) {
       table.group.visible = true;
       gsap.to(table.group.scale, { x: 1, y: 1, z: 1, duration: 0.7, ease: 'back.out(1.6)', overwrite: true });
-    },
-    leave: () =>
-      gsap.to(table.group.scale, { x: 0.001, y: 0.001, z: 0.001, duration: 0.35, ease: 'power2.in', overwrite: true, onComplete: () => void (table.group.visible = false) }),
-  });
+    } else {
+      gsap.to(table.group.scale, { x: 0.001, y: 0.001, z: 0.001, duration: 0.35, ease: 'power2.in', overwrite: true, onComplete: () => void (table.group.visible = false) });
+    }
+  };
 
   function radios<K extends string>(container: HTMLElement, entries: [K, { name: string }][], key: keyof Bot, build: (btn: HTMLButtonElement, k: K) => void): (v: string) => void {
     const buttons = entries.map(([k, v]) => {
@@ -173,6 +181,7 @@ export function initMake(o: { director: Director; brain: Brain; robot: Robot; so
   return {
     update(dt) {
       const here = director.current?.id === 'make';
+      setTable(here && director.nearness > 0.75);
       if (!dragging) {
         spin += velocity * dt;
         velocity *= Math.exp(-3 * dt);

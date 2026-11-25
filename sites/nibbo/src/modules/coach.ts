@@ -95,7 +95,7 @@ export function initCoach(o: { director: Director; brain: Brain; tricks: Tricks;
     update(dt) {
       clock += dt;
       since += dt;
-      if (!here || hinted.has(here) || speech.busy || brain.busy || brain.isAsleep) return;
+      if (!here || hinted.has(here) || speech.busy || brain.busy || brain.isAsleep || director.travelling || !speech.hasRoom) return;
       const wait = here === 'hero' ? 7 : 4;
       if (since < wait || clock - quietSince < 2.5 || clock - lastHint < 10) return;
       const hint = (HINTS[here] ?? []).find((h) => !tricks.has(h.trick));

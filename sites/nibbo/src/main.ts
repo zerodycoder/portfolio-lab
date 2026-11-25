@@ -86,6 +86,12 @@ async function boot(): Promise<void> {
 
   const tricks = new Tricks(sound);
   const speech = new Speech(stage, robot);
+  speech.away = () => director.travelling;
+  speech.avoid = (out) => {
+    if (director.current) director.clearance.collect([director.zoneOf(director.current)], 0, innerWidth, out);
+  };
+  // A line belongs to the section it was said in.
+  director.onChange(() => speech.hide());
   const blocks = new HeroBlocks(stage, () => {
     sound.tok();
     tricks.find('bop');
@@ -141,6 +147,7 @@ async function boot(): Promise<void> {
     inside.update();
     speech.update();
     coach.update(dt);
+    chat.update();
     stage.render();
   });
 

@@ -85,8 +85,12 @@ are generated in code. The only image is the social preview, and that is a scree
   "slot" box; the robot stands on the box's bottom edge at the box's height. A slot owns the robot while the
   viewport centre is inside its section (minus a margin); between sections the robot flies from one slot to the next
   on an arc, leaning into the motion. On phones, where everything is one column, it instead slips out to the right
-  edge (small, peeking in) and hops into the next slot, so it never crosses the text. Slots can compute their own
-  pose: the game board and the adoption box do.
+  edge (small, peeking in) and hops into the next slot, along an L-shaped path (sideways to the edge, then along it)
+  so it doesn't cross the text column. While it rides the edge it stands only where nothing is: `src/lib/clearance.ts`
+  measures the lines of text (line by line, so a short heading leaves the edge free) and the visible controls and
+  cards of the two sections, and the robot keeps its spot while it is free, moves to the nearest free one, or tucks
+  away off screen while a paragraph passes. Slots can compute their own pose: the game board and the adoption box
+  do; the configurator's turntable rises only once the robot has landed there.
 - **The robot** (`src/three/robot.ts`) is built from rounded boxes, tori, capsules, spheres and extruded gears, with
   four transform layers (placement, physics, emotes, parts). Inside the shell are real-looking internals that only
   show when it comes apart: servos, gear motors, a printed circuit board with status LEDs, the motion sensor, a
@@ -100,6 +104,10 @@ are generated in code. The only image is the social preview, and that is a scree
   checklist of the 13 things Nibbo can do, worded for mouse or touch; each one is ticked off (and saved) when the
   visitor does it. A speech bubble rides next to Nibbo's head, projected from 3D; after a few quiet seconds in a
   section Nibbo suggests a trick that hasn't been found yet (one hint per visit), and it answers when one is found.
+  The bubble never covers the page's text: it steers around it (the other side, higher, or lower over the robot),
+  waits when there is no room (and a hint waits for room before it is given), hides while the robot travels, and a
+  line belongs to the section it was said in. On phones the chat's bubbles fade out as they slide under the robot's
+  curtain.
 - **Touch parity** (`src/modules/controls.ts`): on phones the eyes follow the finger, glance at whatever was tapped
   and look the way the page scrolls; a touch on the robot in the hero picks it up, anywhere else a still long press
   does (a swipe across it still scrolls); a hard shake makes it dizzy.

@@ -2502,10 +2502,11 @@ html.is-dragging body {
     --night: 19vw;
   }
 
+  /* Standing on the word, not in front of it: the robot is much bigger than the word on a phone. */
   .footer__slot {
     width: 60vw;
-    height: 34%;
-    bottom: calc(220px + var(--night) * 0.66);
+    height: 30%;
+    bottom: calc(220px + var(--night) * 0.8);
   }
 
   .footer__night {
