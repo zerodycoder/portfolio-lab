@@ -127,15 +127,16 @@ export class Director {
     const h = this.stage.height * 0.2;
     const pad = 10;
     const x0 = vw - h * 0.62 - pad;
+    // Collected wider than the dock itself: the way in and out of it is checked against the same list.
     this.blocked.length = 0;
-    this.clearance.collect(a === b ? [a] : [a, b], x0, vw, this.blocked);
+    this.clearance.collect(a === b ? [a] : [a, b], vw * 0.3, vw, this.blocked);
     const nav = document.querySelector('.nav')?.getBoundingClientRect().bottom ?? 70;
     const min = nav + h + pad;
     const max = vh - pad;
     const free = (feet: number): boolean => {
       const t = feet - h - pad;
       const btm = feet + pad;
-      for (const r of this.blocked) if (r.bottom > t && r.top < btm) return false;
+      for (const r of this.blocked) if (r.right > x0 && r.bottom > t && r.top < btm) return false;
       return true;
     };
     const from = THREE.MathUtils.clamp(this.dockFeet ?? this.lastFeet ?? vh * 0.64, min, max);
@@ -146,6 +147,22 @@ export class Director {
     }
     this.dockFeet = found;
     if (found !== null) this.lastFeet = found;
+  }
+
+  /** Phones: whether the robot standing at `p` would cover any of the obstacles found by `findDock`. */
+  private covers(p: Pose): boolean {
+    const { stage } = this;
+    const top = stage.canvas.getBoundingClientRect().top;
+    const hp = (p.scale * ROBOT_H) / stage.wpp;
+    const cx = p.pos.x / stage.wpp + stage.width / 2;
+    const feet = stage.height / 2 - p.pos.y / stage.wpp + top;
+    const pad = 6;
+    const l = cx - hp * 0.31 - pad;
+    const r = cx + hp * 0.31 + pad;
+    const t = feet - hp - pad;
+    const b = feet + pad;
+    for (const o of this.blocked) if (o.right > l && o.left < r && o.bottom > t && o.top < b) return true;
+    return false;
   }
 
   private poseOf(slot: Slot, rect: DOMRect, out: Pose): void {
@@ -209,6 +226,14 @@ export class Director {
         this.target.quat.slerpQuaternions(from.quat, to.quat, k);
         this.target.scale = THREE.MathUtils.lerp(from.scale, to.scale, k);
         this.nearness = first ? 1 - k : k;
+        // The path follows the scroll, and the scroll can stop anywhere on it, so the way along the edge must not
+        // stand on the text either: wherever the robot (nearer the edge than the slot) would cover something, it
+        // slips off the edge and comes back once the way is clear.
+        const atEdge = first ? kx : 1 - kx;
+        if (atEdge > 0.5 && this.covers(this.target)) {
+          const hp = (this.target.scale * ROBOT_H) / this.stage.wpp;
+          this.target.pos.x = (this.stage.width / 2 + hp * 0.75) * this.stage.wpp;
+        }
       } else {
         this.target.pos.lerpVectors(this.a.pos, this.b.pos, s);
         // Arc through the air a little when travelling between two sections.

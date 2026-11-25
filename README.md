@@ -89,8 +89,10 @@ are generated in code. The only image is the social preview, and that is a scree
   so it doesn't cross the text column. While it rides the edge it stands only where nothing is: `src/lib/clearance.ts`
   measures the lines of text (line by line, so a short heading leaves the edge free) and the visible controls and
   cards of the two sections, and the robot keeps its spot while it is free, moves to the nearest free one, or tucks
-  away off screen while a paragraph passes. Slots can compute their own pose: the game board and the adoption box
-  do; the configurator's turntable rises only once the robot has landed there.
+  away off screen while a paragraph passes. The hop follows the scroll, and the scroll can stop anywhere on it, so
+  its legs along the edge are checked the same way: wherever the robot would cover something on its way, it slips
+  off the edge until the way is clear. Slots can compute their own pose: the game board and the adoption box do; the
+  configurator's turntable rises only once the robot has landed there.
 - **The robot** (`src/three/robot.ts`) is built from rounded boxes, tori, capsules, spheres and extruded gears, with
   four transform layers (placement, physics, emotes, parts). Inside the shell are real-looking internals that only
   show when it comes apart: servos, gear motors, a printed circuit board with status LEDs, the motion sensor, a
