@@ -136,9 +136,11 @@ export class WorldMap {
     const ctx = this.ctx;
     const p = this.project();
     ctx.clearRect(0, 0, w, h);
-    const r = Math.max(0.9, Math.min(2.4, 1.05 * this.view.k ** 0.55)) * (w < 600 ? 0.75 : 1);
+    const r = Math.max(0.9, Math.min(2.4, 1.15 * this.view.k ** 0.55)) * (w < 600 ? 0.8 : 1);
     for (const belt of [false, true]) {
       ctx.fillStyle = belt ? this.colors.belt : this.colors.land;
+      // Land outside the belt stays a step behind the belt's coffee colour.
+      ctx.globalAlpha = belt ? 1 : 0.55;
       ctx.beginPath();
       for (const d of this.dots) {
         if (d.belt !== belt) continue;
@@ -149,6 +151,7 @@ export class WorldMap {
       }
       ctx.fill();
     }
+    ctx.globalAlpha = 1;
     // Tropic lines bounding the coffee belt.
     ctx.strokeStyle = this.colors.belt;
     ctx.globalAlpha = 0.35;

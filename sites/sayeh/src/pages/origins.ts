@@ -77,7 +77,8 @@ const origins: PageFactory = (app, _params, query) => {
       });
       const colors = (): void => {
         const cs = getComputedStyle(document.documentElement);
-        map.setColors({ land: cs.getPropertyValue('--line-strong').trim(), belt: cs.getPropertyValue('--accent').trim(), pin: cs.getPropertyValue('--ink').trim() });
+        // Land in the secondary-text tone (a hairline colour made the continents vanish on the light theme).
+        map.setColors({ land: cs.getPropertyValue('--muted').trim(), belt: cs.getPropertyValue('--accent').trim(), pin: cs.getPropertyValue('--ink').trim() });
       };
       colors();
       const offDay = app.day.subscribe(() => requestAnimationFrame(colors));
