@@ -171,11 +171,12 @@ export class Hub {
 
   private back = (): void => this.c.go('sala');
 
-  open(place: PlaceId): void {
+  /** Opens a corner's panel. `quiet`: for the prewarm behind the loader (no seal is pressed). */
+  open(place: PlaceId, quiet = false): void {
     this.show(false);
     window.clearInterval(this.tickTimer);
     if (place === 'menu') this.menu();
-    else if (place === 'famiglia') this.famiglia();
+    else if (place === 'famiglia') this.famiglia(quiet);
     else if (place === 'lievito') this.lievito();
     else if (place === 'fronte') this.forno();
   }
@@ -196,9 +197,9 @@ export class Hub {
     el.querySelector('[data-own]')?.addEventListener('click', () => this.c.makePizza());
   }
 
-  private famiglia(): void {
+  private famiglia(quiet = false): void {
     setPlace('La famiglia', 'Since 1958');
-    this.c.stamps.give('family');
+    if (!quiet) this.c.stamps.give('family');
     const base = import.meta.env.BASE_URL;
     sheet(
       `<p class="sheet__kicker">La famiglia</p>

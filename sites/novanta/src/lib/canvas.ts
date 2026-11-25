@@ -12,6 +12,33 @@ export function canvas(w: number, h = w, readback = false): { c: HTMLCanvasEleme
   return { c, g };
 }
 
+/** The chalkboard panel's dust: smudges and specks on a tileable 256 px square, as a data URL. */
+export function chalkDust(): string {
+  const { c, g } = canvas(256);
+  g.fillStyle = '#24302a';
+  g.fillRect(0, 0, 256, 256);
+  const r = (n: number): number => Math.random() * n;
+  for (let i = 0; i < 26; i++) {
+    const x = r(256);
+    const y = r(256);
+    const rad = 20 + r(60);
+    // Draw each smudge at the 9 tile offsets so the square repeats without seams.
+    for (const ox of [-256, 0, 256])
+      for (const oy of [-256, 0, 256]) {
+        const grad = g.createRadialGradient(x + ox, y + oy, 0, x + ox, y + oy, rad);
+        grad.addColorStop(0, `rgba(255,255,255,${0.015 + r(0.03)})`);
+        grad.addColorStop(1, 'rgba(255,255,255,0)');
+        g.fillStyle = grad;
+        g.fillRect(x + ox - rad, y + oy - rad, rad * 2, rad * 2);
+      }
+  }
+  for (let i = 0; i < 500; i++) {
+    g.fillStyle = `rgba(255,255,255,${0.03 + r(0.07)})`;
+    g.fillRect(r(256), r(256), 1, 1);
+  }
+  return c.toDataURL('image/png');
+}
+
 /** A scaled copy of a canvas (for lite mode: the same art at fewer pixels). Returns the canvas itself at k = 1. */
 export function shrink(src: HTMLCanvasElement, k: number, into?: HTMLCanvasElement): HTMLCanvasElement {
   if (k >= 1 && !into) return src;

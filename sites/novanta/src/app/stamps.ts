@@ -37,6 +37,9 @@ export class Stamps {
   constructor() {
     this.canvas.width = DIPLOMA_W;
     this.canvas.height = DIPLOMA_H;
+    // Drawn on the CPU: a redraw is rare, and a GPU canvas stalls a frame the first time it draws a new kind of
+    // shape (the first seal pressed).
+    this.canvas.getContext('2d', { willReadFrequently: true });
     this.canvas.className = 'diploma__canvas';
     this.canvas.setAttribute('role', 'img');
     this.render();

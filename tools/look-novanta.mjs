@@ -1,5 +1,5 @@
 // Dev helper: renders NOVANTA at a place, optionally runs a script against window.__novanta, and screenshots it.
-// node tools/look-novanta.mjs <outPrefix> <place> [--mobile] [--script=file.js] [--wait=ms]
+// node tools/look-novanta.mjs <outPrefix> <place> [--mobile] [--script=file.js] [--wait=ms]   (VW=… VH=… set the desktop viewport)
 import { chromium } from 'playwright';
 import fs from 'node:fs/promises';
 const args = process.argv.slice(2);
@@ -9,7 +9,7 @@ const out = pos[0];
 const place = pos[1] ?? 'banco';
 const mobile = args.includes('--mobile');
 const browser = await chromium.launch({ channel: 'msedge', args: ['--use-gl=angle', '--ignore-gpu-blocklist', '--enable-unsafe-swiftshader'] });
-const ctx = await browser.newContext(mobile ? { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true } : { viewport: { width: 1440, height: 900 } });
+const ctx = await browser.newContext(mobile ? { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true } : { viewport: { width: Number(process.env.VW ?? 1440), height: Number(process.env.VH ?? 900) } });
 const page = await ctx.newPage();
 const logs = [];
 page.on('console', (m) => (m.type() === 'error' || m.type() === 'warning') && logs.push(`${m.type()}: ${m.text()}`));

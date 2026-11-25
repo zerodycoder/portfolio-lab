@@ -36,6 +36,8 @@ import { Stage } from './world/stage';
 import { LITE, mediaUrl, preferLite, webgl2 } from './lib/quality';
 import { batchStatic } from './world/batch';
 import { hurry, setBusy } from './lib/idle';
+import { chalkDust } from './lib/canvas';
+import { prewarmPanels } from './app/prewarm';
 
 const base = import.meta.env.BASE_URL;
 type Route = 'strada' | 'sala' | 'menu' | 'famiglia' | 'lievito' | 'fronte' | StepId | 'viaggio' | 'casa';
@@ -312,6 +314,9 @@ async function boot(): Promise<void> {
   void getRapier();
   say('Warming up the oven…');
   await stage.warm((f) => step(0.62 + f * 0.37));
+  // The same for the page's panels: each kind is painted once now, behind the loader (see prewarm.ts).
+  document.documentElement.style.setProperty('--chalk', `url(${chalkDust()})`);
+  await prewarmPanels({ open: (p) => hub.open(p, true), close: () => hub.leave() }, stamps);
   stage.start();
   warmDone();
 

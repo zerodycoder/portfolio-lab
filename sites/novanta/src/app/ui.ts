@@ -62,16 +62,18 @@ export function announce(text: string): void {
   $('[data-announce]').textContent = text;
 }
 
-/** Opens a sheet (side panel on desktop, bottom sheet on phones). Returns its element. */
+/**
+ * Opens a sheet (side panel on desktop, bottom sheet on phones). Returns its body: the element that holds the
+ * content and scrolls it, inside the sheet's rounded frame.
+ */
 export function sheet(html: string, opts: { chalk?: boolean; onClose?: () => void } = {}): HTMLElement {
   const el = $('[data-sheet]');
   el.className = `sheet${opts.chalk ? ' sheet--chalk' : ''}`;
-  el.innerHTML = `${opts.onClose ? '<button type="button" class="sheet__close" data-sheet-close aria-label="Close">×</button>' : ''}${html}`;
+  el.innerHTML = `<div class="sheet__body">${opts.onClose ? '<button type="button" class="sheet__close" data-sheet-close aria-label="Close">×</button>' : ''}${html}</div>`;
   el.hidden = false;
-  el.scrollTop = 0;
   const close = el.querySelector<HTMLButtonElement>('[data-sheet-close]');
   if (close && opts.onClose) close.addEventListener('click', opts.onClose);
-  return el;
+  return el.querySelector<HTMLElement>('.sheet__body')!;
 }
 
 export function closeSheet(): void {

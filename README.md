@@ -220,6 +220,14 @@ the street into the dining room and the kitchen, and out on a delivery.
   is rebuilt only while it moves, with normals computed straight from its grid. Background work (building the
   toppings' pieces) runs in small slices in idle time and waits while the camera moves (`src/lib/idle.ts`); Rapier
   downloads and compiles behind the loader. Canvases whose pixels are read back are kept in CPU memory.
+- **Smooth first opens** (`src/app/prewarm.ts`): the first time the browser paints a new kind of thing (a panel, the
+  diploma's big canvas, a toast), its GPU rasteriser stalls a frame for up to a tenth of a second. Behind the loader,
+  the real corner sheets, the real diploma and the seal toast (plus samples of the kitchen panel, ticket, bake clock
+  and map) are opened once in a nearly transparent box, painted mid-entrance and again settled, then put back. Three
+  things are built to stay cheap as well: the menu's chalk dust is a small tiled image drawn in code
+  (`chalkDust()` in `src/lib/canvas.ts`), not CSS gradients; a sheet's content scrolls in a straight-edged body inside
+  its rounded frame (a sliding panel that is itself a scroller with rounded corners makes the compositor build a
+  masked layer); and a new seal pops only the wax seal on the diploma button, not the blurred pill around it.
 - **Lite mode** (`src/lib/quality.ts`): for older and low-memory phones (4 GB or less, 4 cores or fewer, iOS before
   17), `?lite`, or remembered after a lost WebGL context or a slow first visit: half-size media from the `*-lite`
   folders (`tools/make-novanta-lite.mjs`), half-size drawn art, 9 lights instead of 19, a lower pixel ratio and
@@ -230,7 +238,8 @@ the street into the dining room and the kitchen, and out on a delivery.
   night, Italian and English) with "try again" and, where it helps, "light version", never an endless loader. After
   25 s of loading a hint offers the light version; after 75 s the card does.
 - **Hooks for testing**: `window.__novanta` exposes the stage, the camera rig, the kitchen, the oven, the delivery
-  and `go(place)`, which `tools/look-novanta.mjs` uses; `window.__novantaLoad` records when each loading step ended.
+  and `go(place)`, which `tools/look-novanta.mjs` uses (`VW`/`VH` set its desktop viewport; some stalls only show at
+  certain sizes); `window.__novantaLoad` records when each loading step ended.
 - **Media**: the user's generated photos (toppings cut out of plain backgrounds, family photos) through
   `tools/process-novanta.mjs`; scanned materials and the HDRI from [Poly Haven](https://polyhaven.com) (CC0) through
   `tools/fetch-novanta-pbr.mjs` (1k maps, moderate WebP quality, the HDRI shrunk to 256 × 128).

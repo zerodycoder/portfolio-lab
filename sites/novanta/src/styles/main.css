@@ -114,8 +114,9 @@ img, canvas { display: block; }
 .tessera-btn__seal { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: radial-gradient(circle at 35% 30%, #e0604a, #8e1c12); color: rgba(255, 220, 200, 0.85); font-family: var(--serif); font-style: italic; font-weight: 800; font-size: 13px; box-shadow: inset 0 0 0 2px rgba(60, 8, 4, 0.35); }
 .tessera-btn__label { font-family: var(--serif); font-style: italic; font-size: 15px; }
 .tessera-btn b { font-family: var(--mono); font-size: 13px; }
-.tessera-btn.is-bump { animation: bump 0.6s var(--ease); }
-@keyframes bump { 30% { transform: scale(1.18); } }
+/* Only the seal pops: scaling the whole pill re-blurs its backdrop and stalls a frame the first time. */
+.tessera-btn.is-bump .tessera-btn__seal { animation: bump 0.6s var(--ease); }
+@keyframes bump { 30% { transform: scale(1.45) rotate(-10deg); } }
 .radio-btn__dial { display: inline-flex; gap: 2px; align-items: flex-end; height: 14px; }
 .radio-btn__dial i { width: 3px; height: 4px; background: currentColor; border-radius: 2px; transition: height 0.2s; }
 .radio-btn[aria-pressed='true'] .radio-btn__dial i { animation: eq 0.9s ease-in-out infinite; }
@@ -262,16 +263,20 @@ img, canvas { display: block; }
 .look-hint { position: fixed; z-index: 21; left: 50%; bottom: calc(86px + env(safe-area-inset-bottom)); transform: translateX(-50%); font-family: var(--hand); font-size: 22px; color: #ffe2b8; text-shadow: 0 2px 10px rgba(0, 0, 0, 0.7); pointer-events: none; transition: opacity 0.6s; white-space: nowrap; }
 
 /* ——— Sheets: menu, family, dough, report, box form ——— */
-.sheet { position: fixed; z-index: 35; right: 22px; top: calc(var(--bar-h) + env(safe-area-inset-top) + 16px); bottom: 22px; width: min(400px, calc(100vw - 44px)); overflow: auto; background: var(--paper); border-radius: 18px; padding: 22px; box-shadow: var(--shadow); animation: sheet-in 0.5s var(--ease); }
-/* Chalk dust as two soft washes: a tiled dot pattern costs the GPU a long first raster. */
-.sheet--chalk { background: radial-gradient(120% 60% at 30% 10%, rgba(255, 255, 255, 0.06), transparent 60%), radial-gradient(90% 50% at 80% 90%, rgba(255, 255, 255, 0.04), transparent 60%), #24302a; color: #f1eee6; }
+.sheet { position: fixed; z-index: 35; right: 22px; top: calc(var(--bar-h) + env(safe-area-inset-top) + 16px); bottom: 22px; width: min(400px, calc(100vw - 44px)); display: flex; flex-direction: column; background: var(--paper); border-radius: 18px; padding: 10px 0 22px; box-shadow: var(--shadow); animation: sheet-in 0.5s var(--ease); }
+/* The content scrolls in a straight-edged body set inside the rounded frame. A sliding panel that is itself the
+   scroller makes the compositor clip a moving layer to rounded corners: a masked layer that stalls ~50 ms the first time. */
+.sheet__body { position: relative; flex: 1 1 auto; min-height: 0; overflow: auto; padding: 12px 22px 0; scrollbar-width: thin; scrollbar-color: rgba(128, 112, 96, 0.5) transparent; }
+/* Chalk dust is a small tiled image drawn once in code (main.ts sets --chalk). CSS gradients would look the same but
+   cost the GPU a long raster the first time the panel opens (radial ones especially). */
+.sheet--chalk { background: #24302a var(--chalk, none) repeat; background-size: 256px 256px; color: #f1eee6; }
 .sheet--chalk .sheet__lead { color: rgba(241, 238, 230, 0.75); }
 @keyframes sheet-in { from { transform: translateX(30px); opacity: 0; } }
 .sheet__kicker { margin: 0; font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--tomato); }
 .sheet--chalk .sheet__kicker { color: #f3c96b; }
 .sheet__title { margin: 4px 0 8px; font-family: var(--serif); font-size: 30px; line-height: 1.05; font-weight: 600; }
 .sheet__lead { margin: 0 0 16px; font-size: 14.5px; line-height: 1.5; color: var(--ink-2); }
-.sheet__close { position: absolute; right: 14px; top: 10px; border: 0; background: none; font-size: 26px; color: inherit; }
+.sheet__close { position: absolute; right: 14px; top: 0; border: 0; background: none; font-size: 26px; color: inherit; }
 .menu-item { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; padding: 12px 0; border-bottom: 1px dashed rgba(241, 238, 230, 0.22); }
 .menu-item h3 { margin: 0; font-family: var(--hand); font-size: 30px; font-weight: 600; line-height: 0.95; }
 .menu-item p { margin: 0; grid-column: 1; font-size: 13px; opacity: 0.8; }
@@ -355,7 +360,8 @@ img, canvas { display: block; }
   .note__it { font-size: 21px; }
   .note__en { font-size: 11.5px; }
   .kitchen[data-step='forno'] .ticket { display: none; }
-  .sheet { left: 0; right: 0; top: auto; bottom: 0; width: auto; max-height: 62%; border-radius: 20px 20px 0 0; padding: 18px 18px calc(18px + env(safe-area-inset-bottom)); }
+  .sheet { left: 0; right: 0; top: auto; bottom: 0; width: auto; max-height: 62%; border-radius: 20px 20px 0 0; padding: 10px 0 calc(18px + env(safe-area-inset-bottom)); }
+  .sheet__body { padding: 8px 18px 0; }
   .sheet__title { font-size: 24px; }
   .spot { padding: 6px 11px 6px 8px; }
   .spot__it { font-size: 14px; }
