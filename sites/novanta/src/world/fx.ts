@@ -1,20 +1,42 @@
 import * as THREE from 'three';
+import { fbm2, rng, smoothstep } from '../lib/rand';
 
 /** Soft round sprite used by flour puffs and steam. */
+/**
+ * A wisp of vapour, not a disc: a few soft lobes thinned by noise, with no bright core, so puffs that overlap (or
+ * sit over a pizza seen from above) read as steam rather than round smudges.
+ */
+let sprite: THREE.Texture | null = null;
+
 function softSprite(): THREE.Texture {
+  if (sprite) return sprite;
+  const S = 128;
   const c = document.createElement('canvas');
-  c.width = c.height = 64;
+  c.width = c.height = S;
   const g = c.getContext('2d')!;
-  const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
-  grad.addColorStop(0, 'rgba(255,255,255,1)');
-  grad.addColorStop(0.5, 'rgba(255,255,255,0.45)');
-  grad.addColorStop(1, 'rgba(255,255,255,0)');
-  g.fillStyle = grad;
-  g.fillRect(0, 0, 64, 64);
-  return new THREE.CanvasTexture(c);
+  const r = rng(11);
+  const lobes = Array.from({ length: 5 }, () => ({ x: 0.5 + (r() - 0.5) * 0.3, y: 0.5 + (r() - 0.5) * 0.3, s: 0.13 + r() * 0.1 }));
+  const img = g.createImageData(S, S);
+  for (let y = 0; y < S; y++)
+    for (let x = 0; x < S; x++) {
+      const u = (x + 0.5) / S;
+      const v = (y + 0.5) / S;
+      let a = 0;
+      for (const l of lobes) a += Math.exp(-((u - l.x) ** 2 + (v - l.y) ** 2) / (l.s * l.s)) * 0.42;
+      a *= 0.3 + 0.7 * fbm2(u * 5, v * 5, 4, 3);
+      a *= smoothstep(0.5, 0.32, Math.hypot(u - 0.5, v - 0.5));
+      const i = (y * S + x) * 4;
+      img.data[i] = img.data[i + 1] = img.data[i + 2] = 255;
+      img.data[i + 3] = Math.min(255, a * 255);
+    }
+  g.putImageData(img, 0, 0);
+  sprite = new THREE.CanvasTexture(c);
+  return sprite;
 }
 
-type P = { pos: THREE.Vector3; vel: THREE.Vector3; life: number; max: number; size: number };
+type P = { pos: THREE.Vector3; vel: THREE.Vector3; life: number; max: number; size: number; rot: number; spin: number };
+
+const VIEW_AXIS = new THREE.Vector3(0, 0, 1);
 
 /**
  * A small particle system of soft sprites: flour puffs when the dough is pressed, steam rising off a fresh pizza.
@@ -24,6 +46,7 @@ export class Puffs {
   readonly mesh: THREE.InstancedMesh;
   private ps: P[] = [];
   private dummy = new THREE.Object3D();
+  private turn = new THREE.Quaternion();
   private cam: THREE.Camera;
 
   constructor(cam: THREE.Camera, color: string, opacity: number, max = 120) {
@@ -44,6 +67,8 @@ export class Puffs {
         life: 0,
         max: life * (0.7 + Math.random() * 0.6),
         size: size * (0.6 + Math.random() * 0.8),
+        rot: Math.random() * Math.PI * 2,
+        spin: (Math.random() - 0.5) * 0.8,
       });
     }
   }
@@ -57,7 +82,9 @@ export class Puffs {
       p.vel.y += dt * 0.02;
       const k = p.life / p.max;
       this.dummy.position.copy(p.pos);
-      this.dummy.quaternion.copy(this.cam.quaternion);
+      // Facing the camera, each wisp turned its own way and slowly turning, so no two look alike.
+      p.rot += p.spin * dt;
+      this.dummy.quaternion.copy(this.cam.quaternion).multiply(this.turn.setFromAxisAngle(VIEW_AXIS, p.rot));
       this.dummy.scale.setScalar(p.size * (0.6 + k * 1.4) * Math.sin(Math.min(1, k * 1.3) * Math.PI) + 1e-4);
       this.dummy.updateMatrix();
       this.mesh.setMatrixAt(i, this.dummy.matrix);

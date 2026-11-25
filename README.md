@@ -200,6 +200,11 @@ the street into the dining room and the kitchen, and out on a delivery.
   finishing touches.
 - **Delivery** (`src/app/delivery.ts`): name the box, send it, and follow a 16-second ride across a drawn map of
   Naples; the tab's title and favicon count down, the ride survives a reload, and the same pizza arrives at the door.
+- **The doorstep** (`buildDoorstep()` in `src/world/facade.ts`): a Neapolitan landing at night in the scanned sets
+  the shop already loaded (terracotta tiles, old plaster, a wooden door on a stone sill), a coir doormat drawn in
+  code, and one warm hall light that pools on the box about as brightly as the kitchen's bench lamp, with the same
+  shadow settings (no acne on the pizza). The steam is noisy wisps that turn, not discs, so seen from above it reads
+  as vapour rather than smudges on the pizza.
 - **The menu** (`src/pizza/catalog.ts`): the classics, each with its story; "Bake it" makes one by itself (dough,
   sauce, toppings) and hands over at the oven.
 - **Discovering things** (`src/app/stamps.ts`): a pizzaiolo's diploma on the wall with ten wax seals.

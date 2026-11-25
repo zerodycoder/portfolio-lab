@@ -180,7 +180,7 @@ async function boot(): Promise<void> {
     await breathe();
     facade = await buildFacade(base);
     stage.scene.add(facade.group);
-    stage.scene.add(buildDoorstep().group);
+    stage.scene.add((await buildDoorstep(base)).group);
     step(0.6);
     say('Tearing the mozzarella…');
     await breathe();
@@ -300,10 +300,12 @@ async function boot(): Promise<void> {
     pizza.surface.uTime.value = t;
     rig.update(dt);
     steam.update(dt);
-    if (steaming && Math.random() < dt * 8) {
+    // A thin, steady breath of steam off the opened pizza (seen from above, more would sit on it like haze).
+    if (steaming && Math.random() < dt * 4) {
       const p = pizza.group.getWorldPosition(new THREE.Vector3());
       const a = Math.random() * Math.PI * 2;
-      steam.burst(p.add(new THREE.Vector3(Math.cos(a) * 0.08, 0.01, Math.sin(a) * 0.08)), 1, 0.004, 0.05, 0.035, 2.2);
+      const r = 0.03 + Math.random() * 0.09;
+      steam.burst(p.add(new THREE.Vector3(Math.cos(a) * r, 0.01, Math.sin(a) * r)), 1, 0.004, 0.08, 0.035, 2);
     }
   });
 

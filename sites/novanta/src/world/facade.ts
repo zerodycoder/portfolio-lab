@@ -409,51 +409,121 @@ export async function buildFacade(base: string): Promise<Facade> {
   return { group, shutter, setOpen, update };
 }
 
-/** The doorstep where the pizza arrives: tiles, a doormat, a door, a warm hall light. Placed far from the shop. */
-export function buildDoorstep(): { group: THREE.Group; spot: THREE.Vector3 } {
+/** UVs that count repeats of `metres`, so a scanned texture keeps its real scale on a w × h face. */
+function metresUv(g: THREE.BufferGeometry, w: number, h: number, metres: number): THREE.BufferGeometry {
+  const uv = g.getAttribute('uv') as THREE.BufferAttribute;
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, (uv.getX(i) * w) / metres, (uv.getY(i) * h) / metres);
+  return g;
+}
+
+/**
+ * A coir doormat: rows of short stiff fibres in a few tones, a bound edge, and "Benvenuti" woven in (dark fibres,
+ * with loose ones crossing over the letters). Strokes are batched one path per tone, so drawing it is cheap.
+ */
+function doormatArt(): HTMLCanvasElement {
+  const W = 512;
+  const H = 320;
+  const { c, g } = canvas(W, H);
+  const r = rng(90);
+  g.fillStyle = '#3e2a16';
+  g.fillRect(0, 0, W, H);
+  const TONES = ['rgba(132,98,58,0.55)', 'rgba(112,82,48,0.55)', 'rgba(92,66,38,0.55)', 'rgba(72,50,28,0.6)', 'rgba(150,116,70,0.4)'];
+  const fibres = (count: number, alpha = 1): void => {
+    g.globalAlpha = alpha;
+    g.lineCap = 'round';
+    for (const tone of TONES) {
+      g.strokeStyle = tone;
+      g.lineWidth = 1.2;
+      g.beginPath();
+      for (let i = 0; i < count / TONES.length; i++) {
+        // Stiff fibres standing mostly upright, each at its own small angle.
+        const y = r() * H;
+        const a = -Math.PI / 2 + (r() - 0.5) * 0.9;
+        const len = 3 + r() * 5;
+        const x = r() * W;
+        g.moveTo(x, y);
+        g.lineTo(x + Math.cos(a) * len, y + Math.sin(a) * len);
+      }
+      g.stroke();
+    }
+    g.globalAlpha = 1;
+  };
+  fibres(16000);
+  // Faint rows of the weave.
+  g.fillStyle = 'rgba(30,18,8,0.12)';
+  for (let y = 0; y < H; y += 6) g.fillRect(0, y, W, 1);
+  // The letters, then loose fibres over them so they read as woven, not printed.
+  g.fillStyle = 'rgba(34,20,10,0.88)';
+  g.font = 'italic 700 54px "Fraunces Variable", Georgia, serif';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillText('Benvenuti', W / 2, H - 62);
+  fibres(5000, 0.35);
+  // A bound edge.
+  g.strokeStyle = 'rgba(46,28,14,0.9)';
+  g.lineWidth = 12;
+  g.strokeRect(6, 6, W - 12, H - 12);
+  return c;
+}
+
+/**
+ * The doorstep where the pizza arrives: a Neapolitan landing at night. Terracotta tiles (the scanned set the shop
+ * floor uses), a coir doormat, a wooden door on a stone sill in an old plastered wall, and one warm hall light that
+ * pools on the box while the rest falls off into the dark. Placed far from the shop.
+ */
+export async function buildDoorstep(base: string): Promise<{ group: THREE.Group; spot: THREE.Vector3 }> {
   const group = new THREE.Group();
   group.position.set(30, 0, 0);
-  const tileC = canvas(512);
-  for (let i = 0; i < 8; i++)
-    for (let j = 0; j < 8; j++) {
-      tileC.g.fillStyle = (i + j) % 2 ? '#b65a3c' : '#c76a48';
-      tileC.g.fillRect(i * 64, j * 64, 64, 64);
-      tileC.g.strokeStyle = 'rgba(60,30,20,0.6)';
-      tileC.g.strokeRect(i * 64, j * 64, 64, 64);
-    }
-  const floorTex = colorTex(tileC.c, [3, 3]);
-  floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping;
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(4, 4), new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.7 }));
+  const [tileMat, plasterMat, doorMat] = await Promise.all([
+    pbr(base, 'floor', { color: '#e6c6b0' }),
+    pbr(base, 'oldplaster', { color: '#cfae94' }),
+    pbr(base, 'wood', { color: '#6e4429' }),
+  ]);
+  const floor = new THREE.Mesh(metresUv(new THREE.PlaneGeometry(4, 4), 4, 4, 1.4), tileMat);
   floor.rotation.x = -Math.PI / 2;
   floor.receiveShadow = true;
   group.add(floor);
-  const matC = canvas(512, 320);
-  matC.g.fillStyle = '#6b4a2a';
-  matC.g.fillRect(0, 0, 512, 320);
-  for (let i = 0; i < 2000; i++) {
-    matC.g.fillStyle = `rgba(${120 + Math.random() * 40},${80 + Math.random() * 30},${40},0.5)`;
-    matC.g.fillRect(Math.random() * 512, Math.random() * 320, 2, 6);
-  }
-  matC.g.fillStyle = 'rgba(42,26,16,0.85)';
-  matC.g.font = 'italic 700 54px "Fraunces Variable", Georgia, serif';
-  matC.g.textAlign = 'center';
-  matC.g.textBaseline = 'middle';
-  matC.g.fillText('Benvenuti', 256, 282);
-  const mat = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.015, 0.5), new THREE.MeshStandardMaterial({ map: colorTex(matC.c), roughness: 1 }));
+  const wall = new THREE.Mesh(metresUv(new THREE.PlaneGeometry(4, 3), 4, 3, 1.5), plasterMat);
+  wall.position.set(0, 1.5, -0.49);
+  wall.receiveShadow = true;
+  group.add(wall);
+  // A marble sill under the door, the door on it, a brass kick plate and knob.
+  const sill = new THREE.Mesh(new THREE.BoxGeometry(1.12, 0.022, 0.12), new THREE.MeshStandardMaterial({ color: '#968d82', roughness: 0.5 }));
+  sill.position.set(0, 0.011, -0.42);
+  sill.receiveShadow = true;
+  group.add(sill);
+  const door = new THREE.Mesh(new THREE.BoxGeometry(1.0, 2.2, 0.06), doorMat);
+  door.position.set(0, 0.022 + 1.1, -0.45);
+  door.receiveShadow = true;
+  group.add(door);
+  const brass = new THREE.MeshStandardMaterial({ color: '#c49a48', metalness: 0.9, roughness: 0.32 });
+  const kick = new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.14, 0.004), brass);
+  kick.position.set(0, 0.022 + 0.09, -0.418);
+  group.add(kick);
+  const knob = new THREE.Mesh(new THREE.SphereGeometry(0.03, 16, 12), brass);
+  knob.position.set(0.38, 1.05, -0.41);
+  group.add(knob);
+  const art = doormatArt();
+  const matTex = colorTex(art);
+  const mat = new THREE.Mesh(
+    new THREE.BoxGeometry(0.8, 0.015, 0.5),
+    new THREE.MeshStandardMaterial({ map: matTex, bumpMap: matTex, bumpScale: 1, roughness: 1 }),
+  );
   mat.position.set(0, 0.0075, 0.05);
   mat.receiveShadow = true;
   group.add(mat);
-  const door = new THREE.Mesh(new THREE.BoxGeometry(1.0, 2.2, 0.06), new THREE.MeshStandardMaterial({ color: '#4a2c1c', roughness: 0.55 }));
-  door.position.set(0, 1.1, -0.45);
-  group.add(door);
-  const knob = new THREE.Mesh(new THREE.SphereGeometry(0.03, 16, 12), new THREE.MeshStandardMaterial({ color: '#d6a648', metalness: 0.9, roughness: 0.25 }));
-  knob.position.set(0.38, 1.05, -0.41);
-  group.add(knob);
-  const light = new THREE.SpotLight('#ffd2a0', 6, 5, 0.7, 0.6, 1.5);
-  light.position.set(0.2, 2.4, 0.6);
-  light.target.position.set(0, 0, 0.1);
+  // The hall light, high and a little in front: a pool on the box about as bright as the kitchen's bench lamp,
+  // falling off over the mat and the tiles. Shadow settings as the bench lamp's (no acne on the pizza).
+  const light = new THREE.SpotLight('#ffd6a8', 16, 5, 0.6, 0.85, 1.5);
+  light.position.set(0.25, 2.3, 0.75);
+  light.target.position.set(0, 0, -0.02);
   light.castShadow = true;
-  light.shadow.mapSize.set(LITE ? 512 : 1024, LITE ? 512 : 1024);
+  light.shadow.mapSize.set(LITE ? 1024 : 2048, LITE ? 1024 : 2048);
+  light.shadow.bias = -0.0004;
+  light.shadow.normalBias = 0.003;
+  light.shadow.camera.near = 1;
+  light.shadow.camera.far = 4;
+  light.shadow.radius = 3;
   group.add(light, light.target);
   if (!LITE) group.add(new THREE.HemisphereLight('#ffe2bf', '#2a1a10', 0.35));
   return { group, spot: new THREE.Vector3(30, 0.016, 0.1) };
