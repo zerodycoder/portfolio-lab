@@ -3,6 +3,7 @@ import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeom
 import { colorTex, dataTex } from '../lib/canvas';
 import { pbr } from './pbr';
 import { majolica, marble, oakBoard, photoOr, plainTiles, tileRelief } from './textures';
+import { LITE } from '../lib/quality';
 
 /**
  * The pizzeria's interior, in metres: the floor is y = 0, the street wall z = +2.5, the back wall z = -2.5,
@@ -163,11 +164,12 @@ export async function buildRoom(base: string): Promise<Room> {
   group.add(board);
 
   // Light: a low warm fill, enamel pendants over the counter and the tables, the street's blue outside.
-  const hemi = new THREE.HemisphereLight('#ffe2bf', '#3a2618', 0.16);
+  // Lite drops the accent lights; a little more fill makes up for them.
+  const hemi = new THREE.HemisphereLight('#ffe2bf', '#3a2618', LITE ? 0.26 : 0.16);
   group.add(hemi);
   const street = new THREE.DirectionalLight('#8fa6d8', 0.3);
   street.position.set(-1, 3, 8);
-  group.add(street);
+  if (!LITE) group.add(street);
   const bulbs: THREE.PointLight[] = [];
   const cordMat = new THREE.MeshStandardMaterial({ color: '#111', roughness: 0.6 });
   const enamelOut = new THREE.MeshPhysicalMaterial({ color: '#2f5a43', roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.1 });
@@ -207,7 +209,7 @@ export async function buildRoom(base: string): Promise<Room> {
   pendantSpot.position.copy(benchLampPos);
   pendantSpot.target.position.set(BOARD_SPOT.x, BENCH.top, BOARD_SPOT.z);
   pendantSpot.castShadow = true;
-  pendantSpot.shadow.mapSize.set(2048, 2048);
+  pendantSpot.shadow.mapSize.set(LITE ? 1024 : 2048, LITE ? 1024 : 2048);
   pendantSpot.shadow.bias = -0.0004;
   pendantSpot.shadow.normalBias = 0.002;
   pendantSpot.shadow.camera.near = 0.3;
@@ -231,7 +233,7 @@ export async function buildRoom(base: string): Promise<Room> {
   const shelfLight = new THREE.SpotLight('#ffd2a0', 3, 4, 1.0, 0.7, 1.7);
   shelfLight.position.set(1.75, ROOM.h - 1.25, BOARD_SPOT.z + 0.1);
   shelfLight.target.position.set(2.0, BENCH.top, -2.3);
-  group.add(shelfLight, shelfLight.target);
+  if (!LITE) group.add(shelfLight, shelfLight.target);
 
   return { group, board, pendantSpot, lights: { bulbs, hemi, street }, hot };
 }

@@ -14,7 +14,7 @@ const page = await ctx.newPage();
 const logs = [];
 page.on('console', (m) => (m.type() === 'error' || m.type() === 'warning') && logs.push(`${m.type()}: ${m.text()}`));
 page.on('pageerror', (e) => logs.push(`pageerror: ${e.message}`));
-await page.goto(`${flag('url') ?? 'http://localhost:5177/'}#${place}`, { waitUntil: 'networkidle' });
+await page.goto(`${flag("url") ?? "http://localhost:5177/"}${flag("q") ?? ""}#${place}`, { waitUntil: 'networkidle' });
 if (await page.$('[data-gate]')) {
   await page.waitForSelector('[data-gate].is-ready', { timeout: 60000 });
   await page.waitForTimeout(800);

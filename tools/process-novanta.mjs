@@ -1,5 +1,5 @@
 // Turns the generated NOVANTA media into what the site loads.
-// node tools/process-novanta.mjs [--inbox=assets-inbox/novanta]
+// node tools/process-novanta.mjs [--inbox=assets-inbox/novanta]   (then node tools/make-novanta-lite.mjs)
 //
 // - i-<topping>: a top-down flat lay on a plain background → every piece is cut out (background colour estimated
 //   from the border, connected components, small holes filled, soft edge, edge colours pulled in from the inside),

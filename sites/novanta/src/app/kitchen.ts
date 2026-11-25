@@ -496,6 +496,7 @@ export class Kitchen {
 
   private async condimenti(): Promise<void> {
     const p = this.pizza;
+    await p.preload();
     p.group.position.copy(BOARD_SPOT);
     p.group.rotation.set(0, 0, 0);
     this.box.group.visible = false;
@@ -1063,6 +1064,7 @@ export class Kitchen {
 
   private async taglio(): Promise<void> {
     const p = this.pizza;
+    await p.preload();
     this.box.group.visible = false;
     p.group.position.copy(BOARD_SPOT);
     this.c.rig.go('banco', 1);
@@ -1322,6 +1324,7 @@ export class Kitchen {
 
   /** Builds a classic in one go (stretched, sauced, topped) and sends it to the oven. */
   async bakeClassic(cl: Classic): Promise<void> {
+    await this.pizza.preload();
     this.fresh();
     this.classic = cl;
     this.step = 'impasto';

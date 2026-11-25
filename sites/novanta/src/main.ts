@@ -33,13 +33,57 @@ import { buildProps } from './world/props';
 import { loadEnv } from './world/pbr';
 import { BOARD_SPOT, buildRoom } from './world/room';
 import { Stage } from './world/stage';
+import { LITE, preferLite, webgl2 } from './lib/quality';
 
 const base = import.meta.env.BASE_URL;
 type Route = 'strada' | 'sala' | 'menu' | 'famiglia' | 'lievito' | 'fronte' | StepId | 'viaggio' | 'casa';
 const STEP_IDS = STEPS.map((s) => s.id) as string[];
 const ROUTES = ['strada', 'sala', 'menu', 'famiglia', 'lievito', 'fronte', 'viaggio', 'casa', ...STEP_IDS];
 
+type Trouble = 'unsupported' | 'crash' | 'lost' | 'slow';
+
+const TROUBLE: Record<Trouble, [string, string, { lite: boolean; retry: boolean; wait: boolean }]> = {
+  unsupported: [
+    'Questo browser non accende il forno.',
+    'NOVANTA is a 3D pizzeria built on WebGL 2, which this browser doesn’t support or has switched off. Open it in an up-to-date Chrome, Safari, Edge or Firefox.',
+    { lite: false, retry: false, wait: false },
+  ],
+  crash: [
+    'Il forno si è spento.',
+    'Something went wrong while lighting the oven. Try again, or open the light version made for older phones.',
+    { lite: true, retry: true, wait: false },
+  ],
+  lost: [
+    'Il forno si è spento.',
+    'This device ran out of graphics memory. The light version is made for exactly this: half-size textures, fewer lights.',
+    { lite: true, retry: true, wait: false },
+  ],
+  slow: [
+    'Ci vuole un po’…',
+    'This is taking longer than it should: a slow connection, or an older device. The light version loads much faster.',
+    { lite: true, retry: false, wait: true },
+  ],
+};
+
+/** Shows the fallback card instead of an endless loader. */
+function trouble(kind: Trouble, err?: unknown): void {
+  const el = document.querySelector<HTMLElement>('[data-fallback]');
+  if (!el) return;
+  const [it, en, show] = TROUBLE[kind];
+  el.querySelector('[data-fallback-it]')!.textContent = it;
+  el.querySelector('[data-fallback-en]')!.textContent = en;
+  (el.querySelector('[data-fallback-lite]') as HTMLElement).hidden = !show.lite || LITE;
+  (el.querySelector('[data-fallback-retry]') as HTMLElement).hidden = !show.retry;
+  (el.querySelector('[data-fallback-wait]') as HTMLElement).hidden = !show.wait;
+  el.querySelector('[data-fallback-retry]')!.addEventListener('click', () => location.reload());
+  el.querySelector('[data-fallback-wait]')!.addEventListener('click', () => (el.hidden = true));
+  el.hidden = false;
+  if (kind === 'lost' || kind === 'slow') preferLite();
+  if (err) console.error(err);
+}
+
 async function boot(): Promise<void> {
+  if (!webgl2()) return trouble('unsupported');
   const page = { background: 'dark', ink: '#f4eee3' } as const;
   renderBadges($('[data-badges]'), [
     { name: 'Claude Code', logo: brandLogo(siClaude, page) },
@@ -54,7 +98,15 @@ async function boot(): Promise<void> {
   ]);
 
   const canvas = $<HTMLCanvasElement>('[data-stage]');
+  // A phone out of graphics memory loses the WebGL context: say so (and offer lite) instead of a black screen.
+  canvas.addEventListener('webglcontextlost', (e) => {
+    e.preventDefault();
+    trouble('lost');
+  });
   const stage = new Stage(canvas);
+  // The bar never stalls silently: after 25 s a hint offers the light version, after 75 s the fallback card does.
+  const slowHint = setTimeout(() => ($('[data-gate-slow]').hidden = LITE), 25000);
+  const slowCard = setTimeout(() => !document.querySelector('[data-gate].is-ready') && trouble('slow'), 75000);
   const sound = new Sound();
   const rig = new Rig(stage);
   const input = new Input(canvas);
@@ -69,34 +121,63 @@ async function boot(): Promise<void> {
   let props!: Awaited<ReturnType<typeof buildProps>>;
   let facade!: Awaited<ReturnType<typeof buildFacade>>;
   let details!: Awaited<ReturnType<typeof buildDetails>>;
-  const rapier = loadRapier();
+  // Rapier (1.5 MB of WebAssembly) is only needed at the toppings step: it loads after the visitor is in.
+  let rapier: ReturnType<typeof loadRapier> | null = null;
+  const getRapier = (): ReturnType<typeof loadRapier> => (rapier ??= loadRapier());
+  // Shaders are compiled once every object exists (kitchen tools, the box, the steam): see below.
+  let warmDone!: () => void;
+  const warmed = new Promise<void>((r) => (warmDone = r));
+  // Progress the gate shows: every step of the build moves the bar, then the warm-up takes it to the end.
+  let report: (f: number) => void = () => undefined;
+  let reached = 0;
+  const loadLog: [number, number][] = [];
+  const step = (f: number): void => {
+    reached = Math.max(reached, f);
+    report(reached);
+    loadLog.push([Math.round(f * 100), Math.round(performance.now())]);
+  };
+  // For the test tooling (tools/out/load-*.mjs): when each loading step finished.
+  (window as unknown as { __novantaLoad: typeof loadLog }).__novantaLoad = loadLog;
+  // Lets the bar redraw between heavy steps.
+  const breathe = (): Promise<unknown> => new Promise((r) => requestAnimationFrame(r));
   const world = (async () => {
     await document.fonts.ready;
+    step(0.04);
     say('Sweeping the floor…');
     const env = await loadEnv(stage.renderer, base);
     if (env) stage.setEnvironment(env, 0.22);
+    step(0.08);
+    await breathe();
     const room = await buildRoom(base);
     stage.scene.add(room.group);
+    step(0.22);
     say('Lighting the oven…');
+    await breathe();
     oven = await buildOven('NOVANTA', base);
     stage.scene.add(oven.group);
+    step(0.34);
+    await breathe();
     props = await buildProps(base, stamps.canvas);
-    stamps.onDraw = () => (props.diplomaTex.needsUpdate = true);
+    stamps.onDraw = () => props.syncDiploma();
+    step(0.42);
+    await breathe();
     details = await buildDetails(base, [new THREE.Vector3(-1.9, 0, 1.4), new THREE.Vector3(-0.4, 0, 1.6)]);
     stage.scene.add(details.group);
     stage.scene.add(props.group);
+    step(0.5);
+    say('Rolling up the street…');
+    await breathe();
     facade = await buildFacade(base);
     stage.scene.add(facade.group);
     stage.scene.add(buildDoorstep().group);
+    step(0.6);
     say('Tearing the mozzarella…');
+    await breathe();
     pizza = await Pizza.create(base);
     // The dough ball waits on the work board until someone starts a pizza.
     pizza.group.position.copy(BOARD_SPOT);
-    await pizza.preload();
     stage.scene.add(pizza.group);
     rig.jump('strada');
-    say('Warming up…');
-    await stage.warm();
   })();
 
   const lenisStub = { stop() {}, start() {} } as unknown as Lenis;
@@ -105,9 +186,15 @@ async function boot(): Promise<void> {
     root: $('[data-gate]'),
     sound,
     lenis: lenisStub,
-    tasks: [(r) => world.then(() => r(1)), (r) => rapier.then(() => r(1))],
+    tasks: [
+      (r) => {
+        report = r;
+        r(reached);
+        return world.then(() => step(0.62)).then(() => warmed).then(() => r(1));
+      },
+    ],
     minMs: 1800,
-    maxMs: 30000,
+    maxMs: 600000,
     progress: (k) => ($('[data-gate-fill]').style.width = `${(k * 100).toFixed(1)}%`),
     leave: async (withSound, reveal) => {
       $('[data-gate]').classList.add('is-leaving');
@@ -125,7 +212,6 @@ async function boot(): Promise<void> {
     },
   });
   await world;
-  stage.start();
 
   // The shutter can be dragged up by hand before entering.
   const pull = $('[data-gate-pull]');
@@ -152,7 +238,7 @@ async function boot(): Promise<void> {
 
   // ————— The kitchen, the corners, the ride —————
   let physics: Physics | null = null;
-  const getPhysics = async (): Promise<Physics> => (physics ??= new Physics(await rapier));
+  const getPhysics = async (): Promise<Physics> => (physics ??= new Physics(await getRapier()));
   const delivery = new Delivery(sound);
   const arrivalBox = new PizzaBox();
   arrivalBox.group.visible = false;
@@ -208,6 +294,13 @@ async function boot(): Promise<void> {
       steam.burst(p.add(new THREE.Vector3(Math.cos(a) * 0.08, 0.01, Math.sin(a) * 0.08)), 1, 0.004, 0.05, 0.035, 2.2);
     }
   });
+
+  // Every shader the site will use is compiled now, in the background and for the buffer the scene really renders
+  // into; only then does the first frame draw (otherwise that frame compiles them all at once and freezes the tab).
+  say('Warming up the oven…');
+  await stage.warm((f) => step(0.62 + f * 0.37));
+  stage.start();
+  warmDone();
 
   // Pointer parallax in the dining room.
   addEventListener('pointermove', (e) => {
@@ -354,6 +447,7 @@ async function boot(): Promise<void> {
     if (!saved) return go('sala');
     // A reload loses the pizza in memory: rebuild it from what was saved when it was sent.
     if (!pizza.pieces.length && saved.pizza) {
+      await pizza.preload();
       await pizza.restore(saved.pizza);
       new Bake(pizza).applyAll();
     }
@@ -420,6 +514,28 @@ async function boot(): Promise<void> {
 
   // ————— Start —————
   const withSound = await gateDone;
+  clearTimeout(slowHint);
+  clearTimeout(slowCard);
+  // A device that can't keep up: fewer pixels now, lite on its next visit.
+  if (!LITE) {
+    let frames = 0;
+    let since = 0;
+    const off = stage.tick((dt) => {
+      since += dt;
+      frames++;
+      if (since < 5) return;
+      if (frames / since < 22) {
+        stage.downshift();
+        preferLite();
+      }
+      off();
+    });
+  }
+  const idle = (window as unknown as { requestIdleCallback?: (cb: () => void) => void }).requestIdleCallback ?? ((cb: () => void) => setTimeout(cb, 1500));
+  idle(() => {
+    void getRapier();
+    void pizza.preload();
+  });
   void withSound;
   $('[data-bar]').classList.add('is-on');
   const ride = Delivery.saved();
@@ -446,4 +562,4 @@ async function boot(): Promise<void> {
   Object.assign(window, { __novanta: { stage, oven, pizza, rig, kitchen, hub, sound, stamps, delivery, facade, props, go: (r: Route) => go(r), getPhysics, arrive } });
 }
 
-void boot();
+void boot().catch((e) => trouble('crash', e));

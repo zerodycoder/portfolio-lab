@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { canvas, colorTex } from '../lib/canvas';
 import { fbm2, rng, type Rng } from '../lib/rand';
+import { LITE } from '../lib/quality';
 
 /**
  * The architecture of the street around the shop: dressed windows (stone surrounds, sills, painted frames, green
@@ -288,7 +289,7 @@ export type Patch = [x: number, y: number, r: number];
  * blocks beneath, and hairline cracks.
  */
 export function wallSkin(shape: THREE.Shape, x0: number, x1: number, h: number, Z: number, seed: number, patches: Patch[], sills: [x: number, y: number][]): THREE.Mesh {
-  const PPM = 150;
+  const PPM = LITE ? 70 : 150;
   const W = Math.round((x1 - x0) * PPM);
   const H = Math.round(h * PPM);
   const { c, g } = canvas(W, H);
@@ -531,7 +532,7 @@ export function buildNeighbour(o: NeighbourOpts): { group: THREE.Group; ticks: T
     g.add(glow);
     const lamp = new THREE.PointLight('#ffbd7a', 1.2, 4, 1.8);
     lamp.position.set(o.door.x, doorSpring * 0.8, Zf - depth + 0.5);
-    g.add(lamp);
+    if (!LITE) g.add(lamp);
   }
   // Stone arch round the doorway.
   const archRing = new THREE.Shape();

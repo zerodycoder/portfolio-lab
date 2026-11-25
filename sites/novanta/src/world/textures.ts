@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { canvas, colorTex, dataTex, loadImage, paint, type Ctx } from '../lib/canvas';
 import { fbm2, fbmTile, hash2, noise2, rng, range } from '../lib/rand';
+import { mediaUrl } from '../lib/quality';
 
 /**
  * Every surface of the pizzeria, drawn in code: the floured oak board, Carrara marble, majolica tiles with lemons,
@@ -10,7 +11,7 @@ import { fbm2, fbmTile, hash2, noise2, rng, range } from '../lib/rand';
  */
 
 export async function photoOr(base: string, name: string, draw: () => HTMLCanvasElement, repeat?: [number, number]): Promise<THREE.Texture> {
-  const img = await loadImage(`${base}media/textures/${name}.webp`);
+  const img = await loadImage(mediaUrl(base, `textures/${name}.webp`));
   if (!img) return colorTex(draw(), repeat);
   const t = new THREE.Texture(img);
   t.colorSpace = THREE.SRGBColorSpace;

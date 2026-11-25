@@ -20,7 +20,9 @@ npm run preview -w nibbo                     # serve the build (rakhsh :4173, ni
 node tools/process-rakhsh.mjs                # convert assets-inbox/rakhsh → sites/rakhsh/public/media + manifest.json
 node tools/process-sayeh.mjs                 # same for assets-inbox/sayeh → sites/sayeh/public/media (measures the cup photo)
 node tools/process-novanta.mjs               # assets-inbox/novanta → cut-out toppings, photos and textures for NOVANTA
-node tools/fetch-novanta-pbr.mjs             # download NOVANTA's scanned materials and HDRI (Poly Haven, CC0) as WebP
+node tools/fetch-novanta-pbr.mjs             # download NOVANTA's scanned materials and HDRI (Poly Haven, CC0), sized for phones
+node tools/shrink-novanta-hdr.mjs            # shrink an HDR environment to 256 × 128 (run by fetch-novanta-pbr)
+node tools/make-novanta-lite.mjs             # half-size copies of NOVANTA's media for lite mode (run after the two above)
 node tools/og-nibbo.mjs                      # render NIBBO's 1200×630 social image from the live page (preview running)
 node tools/og-sayeh.mjs                      # render SAYEH's social image: a rosetta poured on the live page
 node tools/og-novanta.mjs                    # render NOVANTA's social image: the street at night, shutter down
@@ -57,7 +59,8 @@ Shared by every site, imported as `@portfolio-lab/kit/<module>` (TypeScript sour
   at full volume), the iOS fix that moves the page onto the media channel so the ring/silent switch doesn't mute it,
   wake-on-return, and the synthesis primitives (`tone`, `noiseHit`, `envelope`). Sites extend `AudioEngine`.
 - `gate.ts`: the entry gate's logic: real preload progress from a list of tasks (never faster than `minMs`, never
-  stuck past `maxMs`), then the sound choice. The site draws the progress and plays its own exit.
+  stuck past `maxMs`, eased by time so a slow device's few frames don't hold it back), then the sound choice. The
+  site draws the progress and plays its own exit.
 - `smooth.ts`: Lenis on GSAP's ticker, anchor links, and the `window.__lenis` / `window.__st` hooks `shoot.mjs` uses.
 - `stack.ts`: the "Built with" badges. Simple Icons logos in brand colour (marks that would vanish on the page's
   background switch to its ink), Playwright's official SVG, a waveform for Web Audio, a colour dot for Lenis.
@@ -204,11 +207,26 @@ the street into the dining room and the kitchen, and out on a delivery.
   toppings landing on notes of a scale (a handful plays a phrase), the peel's scrape, cardboard, a doorbell. The
   radio in the corner plays an original Neapolitan-style waltz on a mandolin and a guitar made by physical modelling
   (Karplus-Strong plucked strings), through a small-radio filter.
+- **Loading** (`src/main.ts`, `src/world/stage.ts`): about 5 MB on a first visit. Every build step moves the gate's
+  bar; then `Stage.warm()` uploads the textures a few per frame and compiles every shader in the background
+  (`compileAsync`) for the buffer the scene really renders into (the composer's linear half-float target; compiling
+  for the canvas gives different programs, which the first frame then recompiles synchronously, freezing the tab),
+  post-processing included. Rendering starts only after that. Rapier and the toppings' pieces are built in idle time
+  after entering, and awaited where they are needed. `vercel.json` makes hashed assets immutable and media cacheable.
+- **Lite mode** (`src/lib/quality.ts`): for older and low-memory phones (4 GB or less, 4 cores or fewer, iOS before
+  17), `?lite`, or remembered after a lost WebGL context or a slow first visit: half-size media from the `*-lite`
+  folders (`tools/make-novanta-lite.mjs`), half-size drawn art, 9 lights instead of 19, a lower pixel ratio and
+  smaller shadow maps. Texture memory drops from about 300 MB to about 100 MB and the download to about 2.7 MB; it
+  looks nearly the same. A device that runs under 22 fps in its first seconds draws fewer pixels at once. `?full`
+  forces the full scene.
+- **When it can't run**: no WebGL 2, an error while loading, or a lost WebGL context shows a card (the street at
+  night, Italian and English) with "try again" and, where it helps, "light version", never an endless loader. After
+  25 s of loading a hint offers the light version; after 75 s the card does.
 - **Hooks for testing**: `window.__novanta` exposes the stage, the camera rig, the kitchen, the oven, the delivery
-  and `go(place)`, which `tools/look-novanta.mjs` uses.
+  and `go(place)`, which `tools/look-novanta.mjs` uses; `window.__novantaLoad` records when each loading step ended.
 - **Media**: the user's generated photos (toppings cut out of plain backgrounds, family photos) through
   `tools/process-novanta.mjs`; scanned materials and the HDRI from [Poly Haven](https://polyhaven.com) (CC0) through
-  `tools/fetch-novanta-pbr.mjs`.
+  `tools/fetch-novanta-pbr.mjs` (1k maps, moderate WebP quality, the HDRI shrunk to 256 × 128).
 
 ## Deploying
 

@@ -56,12 +56,17 @@ export function runGate(o: GateOptions): Promise<boolean> {
     let shown = 0;
     let ready = false;
 
+    let last = t0;
     const frame = (): void => {
-      const elapsed = performance.now() - t0;
+      const now = performance.now();
+      const elapsed = now - t0;
+      // Eased by time, not by frames: on a slow device (few frames a second) the bar still lands on time.
+      const dt = Math.min(0.25, (now - last) / 1000);
+      last = now;
       const real = parts.reduce((a, b) => a + b, 0) / Math.max(1, parts.length);
       const goal = elapsed > maxMs ? 1 : Math.min(real, elapsed / minMs);
-      shown += (goal - shown) * 0.1;
-      if (goal - shown < 0.003) shown = goal;
+      shown += (goal - shown) * Math.min(1, dt * 7);
+      if (goal - shown < 0.01) shown = goal;
       o.progress(shown);
       if (shown >= 1 && !ready) {
         ready = true;

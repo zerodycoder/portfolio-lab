@@ -3,6 +3,7 @@ import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeom
 import { canvas, colorTex, loadImage } from '../lib/canvas';
 import { rng } from '../lib/rand';
 import { BENCH, ROOM } from './room';
+import { mediaUrl } from '../lib/quality';
 
 /**
  * The small things that make the room lived in: the row of steel topping containers at the back of the counter
@@ -14,10 +15,10 @@ type Cell = { x: number; y: number; w: number; h: number };
 
 /** A container's contents: many pieces of one topping, drawn from its photo sheet, packed and overlapping. */
 async function fillTexture(base: string, id: string, w = 256, h = 384): Promise<THREE.Texture | null> {
-  const meta = await fetch(`${base}media/toppings/${id}.json`)
+  const meta = await fetch(mediaUrl(base, `toppings/${id}.json`))
     .then((r) => (r.ok ? (r.json() as Promise<{ cells: Cell[] }>) : null))
     .catch(() => null);
-  const img = meta ? await loadImage(`${base}media/toppings/${id}.webp`) : null;
+  const img = meta ? await loadImage(mediaUrl(base, `toppings/${id}.webp`)) : null;
   if (!meta || !img) return null;
   const { c, g } = canvas(w, h);
   g.fillStyle = '#2a2420';
@@ -120,10 +121,10 @@ async function basilPot(base: string): Promise<THREE.Group> {
   soil.rotation.x = -Math.PI / 2;
   soil.position.y = 0.135;
   g.add(soil);
-  const meta = await fetch(`${base}media/toppings/basilico.json`)
+  const meta = await fetch(mediaUrl(base, 'toppings/basilico.json'))
     .then((r) => (r.ok ? (r.json() as Promise<{ cells: Cell[] }>) : null))
     .catch(() => null);
-  const img = meta ? await loadImage(`${base}media/toppings/basilico.webp`) : null;
+  const img = meta ? await loadImage(mediaUrl(base, 'toppings/basilico.webp')) : null;
   if (!meta || !img) return g;
   const tex = new THREE.Texture(img);
   tex.colorSpace = THREE.SRGBColorSpace;

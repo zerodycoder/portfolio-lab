@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { canvas, colorTex, dataTex, loadImage, paint, type Ctx } from '../lib/canvas';
 import { fbmTile, hash2 } from '../lib/rand';
 import { TEX_HALF } from './dough';
+import { LITE, mediaUrl } from '../lib/quality';
 
 /**
  * The pizza's painted layers, all in pizza space ([-0.2 m, 0.2 m]² → the whole canvas):
@@ -15,7 +16,7 @@ import { TEX_HALF } from './dough';
  */
 
 export const LAYER = 512;
-export const SPOTS = 1024;
+export const SPOTS = LITE ? 512 : 1024;
 export const HEAT = 96;
 
 type Channel = 0 | 1 | 2;
@@ -173,7 +174,7 @@ export class Layers {
 /** Detail tiles (seamless) for the dough, the sauce and the cheese: the processed photo, or drawn here. */
 export async function detailTiles(base: string): Promise<{ dough: THREE.Texture; sauce: THREE.Texture; cheese: THREE.Texture }> {
   const load = async (name: string, draw: () => HTMLCanvasElement): Promise<THREE.Texture> => {
-    const img = await loadImage(`${base}media/textures/${name}.webp`);
+    const img = await loadImage(mediaUrl(base, `textures/${name}.webp`));
     const tex = img ? new THREE.Texture(img) : colorTex(draw());
     tex.colorSpace = THREE.SRGBColorSpace;
     // Photos aren't seamless: mirror them (the shader also blends two rotated samples to hide the repeat).

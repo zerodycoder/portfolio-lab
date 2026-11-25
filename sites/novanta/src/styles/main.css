@@ -60,6 +60,16 @@ img, canvas { display: block; }
 .gate__sub { margin: 6px 0 26px; font-family: var(--serif); font-style: italic; opacity: 0.75; letter-spacing: 0.04em; }
 .gate__bar { width: min(260px, 60vw); height: 3px; margin: 0 auto; background: rgba(255, 255, 255, 0.12); border-radius: 3px; overflow: hidden; }
 .gate__bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #ff7a2a, #ffd27a); box-shadow: 0 0 12px #ff8a3a; }
+.gate__slow { margin: 10px 0 0; font-size: 13px; color: rgba(245, 230, 207, 0.85); }
+.gate__slow a { color: #ffd27a; }
+.fallback { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 20px; background: radial-gradient(120% 90% at 50% 40%, #2a1b12 0%, #0c0806 75%); }
+.fallback__card { width: min(560px, 100%); background: var(--paper); color: var(--ink); border-radius: 18px; overflow: hidden; box-shadow: var(--shadow); }
+.fallback__img { width: 100%; height: auto; display: block; }
+.fallback__body { padding: 20px 22px 22px; }
+.fallback__it { margin: 0; font-family: var(--serif); font-style: italic; font-size: 26px; line-height: 1.1; }
+.fallback__en { margin: 8px 0 16px; font-size: 14.5px; line-height: 1.5; color: var(--ink-2); }
+.fallback__actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.fallback__actions .btn--ghost { color: var(--ink); }
 .gate__status { margin-top: 14px; font-size: 12px; opacity: 0.6; letter-spacing: 0.06em; }
 .gate__ready { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding: 0 20px calc(28px + env(safe-area-inset-bottom)); opacity: 0; pointer-events: none; transition: opacity 0.8s 0.3s; }
 .gate.is-ready .gate__ready { opacity: 1; pointer-events: auto; }

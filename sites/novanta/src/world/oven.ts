@@ -4,6 +4,7 @@ import { colorTex, dataTex } from '../lib/canvas';
 import { GLSL_NOISE } from '../pizza/surface';
 import { boxUV, pbr, pbrSet } from './pbr';
 import { majolica, mosaic, ovenFloor } from './textures';
+import { LITE } from '../lib/quality';
 
 /**
  * The forno a legna: a mosaic dome on a tiled podium, a stone arch around the mouth, a copper flue, and inside,
@@ -101,7 +102,7 @@ export async function buildOven(name: string, base: string): Promise<Oven> {
   group.add(ledge);
 
   // The mosaic dome.
-  const m = mosaic(name);
+  const m = LITE ? mosaic(name, 1024, 256) : mosaic(name);
   const domeTex = colorTex(m.color);
   domeTex.anisotropy = 16;
   const domeBump = dataTex(m.bump);
@@ -359,7 +360,7 @@ export async function buildOven(name: string, base: string): Promise<Oven> {
   fireGroup.add(light);
   const spill = new THREE.PointLight('#ff9a4a', 0.9, 4.5, 1.6);
   spill.position.set(F.x, F.y + 0.25, OVEN.mouthZ + 0.25);
-  group.add(spill);
+  if (!LITE) group.add(spill);
 
   const fire = { light, spill, flames: flamesMat, boost: 1, target: 1 };
   const update = (dt: number, t: number): void => {

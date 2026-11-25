@@ -32,6 +32,7 @@
         <p class="gate__sub">Pizzeria napoletana · dal 1958</p>
         <div class="gate__bar" aria-hidden="true"><i data-gate-fill></i></div>
         <p class="gate__status mono" data-gate-status>Lighting the oven…</p>
+        <p class="gate__slow" data-gate-slow hidden>Ci vuole un po’… <a href="?lite">Try the light version</a></p>
       </div>
       <div class="gate__ready">
         <div class="gate__pull" data-gate-pull aria-hidden="true">
@@ -109,6 +110,22 @@
     </div>
 
     <div class="map" data-map hidden></div>
+
+    <!-- When the oven can't be lit: an unsupported browser, an error, a device out of graphics memory. -->
+    <div class="fallback" data-fallback role="alertdialog" aria-labelledby="fallback-it" hidden>
+      <div class="fallback__card">
+        <img class="fallback__img" src="/og.png" alt="The NOVANTA pizzeria at night, its shutter down" width="1200" height="630" />
+        <div class="fallback__body">
+          <p class="fallback__it" id="fallback-it" data-fallback-it></p>
+          <p class="fallback__en" data-fallback-en></p>
+          <div class="fallback__actions">
+            <a class="btn btn--tomato" href="?lite" data-fallback-lite>Versione leggera · Light version</a>
+            <button class="btn btn--ghost" type="button" data-fallback-retry>Riprova · Try again</button>
+            <button class="btn btn--ghost" type="button" data-fallback-wait>Aspetto · Keep waiting</button>
+          </div>
+        </div>
+      </div>
+    </div>
     <p class="sr-only" data-announce aria-live="assertive"></p>
     <script type="module" src="/src/main.ts"></script>
   </body>

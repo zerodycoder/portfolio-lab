@@ -3,6 +3,7 @@ import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeom
 import { canvas, colorTex } from '../lib/canvas';
 import { rng, type Rng } from '../lib/rand';
 import type { Tick } from './buildings';
+import { LITE } from '../lib/quality';
 
 /**
  * The life of the street in front of the shop: a vintage scooter parked by the shutter with two boxes on its rack,
@@ -757,6 +758,6 @@ export function wallLantern(x: number, y: number, Z: number, intensity = 3.2): {
   g.position.set(x, y, Z + 0.42);
   const light = new THREE.PointLight('#ffb767', intensity, 9, 1.6);
   light.position.set(0, -0.1, 0.1);
-  g.add(light);
+  if (!LITE) g.add(light);
   return { group: g, tick: (_dt, t) => (light.intensity = intensity * (0.96 + 0.04 * Math.sin(t * 8.3 + 1.3))) };
 }

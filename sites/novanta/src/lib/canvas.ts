@@ -11,6 +11,18 @@ export function canvas(w: number, h = w): { c: HTMLCanvasElement; g: Ctx } {
   return { c, g };
 }
 
+/** A scaled copy of a canvas (for lite mode: the same art at fewer pixels). Returns the canvas itself at k = 1. */
+export function shrink(src: HTMLCanvasElement, k: number, into?: HTMLCanvasElement): HTMLCanvasElement {
+  if (k >= 1 && !into) return src;
+  const c = into ?? document.createElement('canvas');
+  c.width = Math.max(1, Math.round(src.width * k));
+  c.height = Math.max(1, Math.round(src.height * k));
+  const g = c.getContext('2d')!;
+  g.imageSmoothingQuality = 'high';
+  g.drawImage(src, 0, 0, c.width, c.height);
+  return c;
+}
+
 /** A canvas as a colour texture (sRGB), optionally repeating. */
 export function colorTex(c: HTMLCanvasElement, repeat?: [number, number]): THREE.CanvasTexture {
   const t = new THREE.CanvasTexture(c);

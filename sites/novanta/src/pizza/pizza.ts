@@ -79,15 +79,18 @@ export class Pizza {
   }
 
   /** Preloads the assets of every topping (sprites → geometry) so a handful drops without a hitch. */
-  async preload(onProgress?: (f: number) => void): Promise<void> {
-    let done = 0;
-    await Promise.all(
-      KINDS.map(async (k) => {
+  private loading: Promise<void> | null = null;
+
+  /** Builds every topping's pieces (sprites → geometry). Once; later calls wait for the same work. */
+  preload(): Promise<void> {
+    this.loading ??= (async () => {
+      for (const k of KINDS) {
         this.kinds.set(k.id, await loadKind(k, this.base));
-        done++;
-        onProgress?.(done / KINDS.length);
-      }),
-    );
+        // One kind per frame: the page stays responsive while the pieces are built.
+        await new Promise((r) => requestAnimationFrame(r));
+      }
+    })();
+    return this.loading;
   }
 
   // ————— Dough —————

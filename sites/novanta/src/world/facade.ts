@@ -1,10 +1,11 @@
 import * as THREE from 'three';
-import { canvas, colorTex } from '../lib/canvas';
+import { canvas, colorTex, shrink } from '../lib/canvas';
 import { rng } from '../lib/rand';
 import { DOOR, ROOM, WINDOW } from './room';
 import { pbr } from './pbr';
 import { buildNeighbour, dressWindow, mergeByMaterial, plinthAndBand, wallShape, wallSkin, windowMats, type Tick, type WinSpec } from './buildings';
 import { Garden, PALETTES, buildScooter, buildShrine, wallLantern, wallPapers } from './street';
+import { LITE } from '../lib/quality';
 
 /**
  * The street at night: the shop's front in weathered ochre stucco, a painted sign, a wall lantern, a little
@@ -202,7 +203,7 @@ export async function buildFacade(base: string): Promise<Facade> {
     const wash = new THREE.SpotLight('#ffcf90', 6, 5, 0.75, 0.8, 1.4);
     wash.position.set(x, FRONT_TOP + 0.72, Z + 0.5);
     wash.target.position.set(x, 0.9, Z);
-    group.add(wash, wash.target);
+    if (!LITE) group.add(wash, wash.target);
   }
 
   // The roller shutter.
@@ -216,7 +217,7 @@ export async function buildFacade(base: string): Promise<Facade> {
   shutter.position.set((FRONT_X0 + FRONT_X1) / 2, FRONT_TOP / 2, Z + 0.03);
   const paint = new THREE.Mesh(
     new THREE.PlaneGeometry(FRONT_X1 - FRONT_X0, FRONT_TOP),
-    new THREE.MeshStandardMaterial({ map: colorTex(shutterArt()), transparent: true, roughness: 0.6, clippingPlanes: [clip], polygonOffset: true, polygonOffsetFactor: -2 }),
+    new THREE.MeshStandardMaterial({ map: colorTex(shrink(shutterArt(), LITE ? 0.5 : 1)), transparent: true, roughness: 0.6, clippingPlanes: [clip], polygonOffset: true, polygonOffsetFactor: -2 }),
   );
   paint.position.z = 0.002;
   shutter.add(paint);
@@ -234,7 +235,8 @@ export async function buildFacade(base: string): Promise<Facade> {
   lantern.add(glow, cage, arm);
   lantern.position.set(FRONT_X1 + 0.55, 3.05, Z + 0.42);
   group.add(lantern);
-  const lampLight = new THREE.PointLight('#ffb767', 3.2, 9, 1.6);
+  // In lite the lantern also stands in for the sign's wash lights.
+  const lampLight = new THREE.PointLight('#ffb767', LITE ? 4.6 : 3.2, 9, 1.6);
   lampLight.position.copy(lantern.position).add(new THREE.Vector3(0, -0.1, 0.1));
   group.add(lampLight);
   // Plants are collected as instances across the whole street, then built at the end.
@@ -244,7 +246,7 @@ export async function buildFacade(base: string): Promise<Facade> {
   ticks.push(shrine.tick);
   const shrineLight = new THREE.PointLight('#ffa860', 0.9, 2.5, 1.8);
   shrineLight.position.set(FRONT_X0 - 0.75, 1.75, Z + 0.35);
-  group.add(shrineLight);
+  if (!LITE) group.add(shrineLight);
   // A second lantern on the left, over the shrine.
   const lanternL = wallLantern(FRONT_X0 - 0.55, 3.05, Z, 2.6);
   group.add(lanternL.group);
@@ -451,8 +453,8 @@ export function buildDoorstep(): { group: THREE.Group; spot: THREE.Vector3 } {
   light.position.set(0.2, 2.4, 0.6);
   light.target.position.set(0, 0, 0.1);
   light.castShadow = true;
-  light.shadow.mapSize.set(1024, 1024);
+  light.shadow.mapSize.set(LITE ? 512 : 1024, LITE ? 512 : 1024);
   group.add(light, light.target);
-  group.add(new THREE.HemisphereLight('#ffe2bf', '#2a1a10', 0.35));
+  if (!LITE) group.add(new THREE.HemisphereLight('#ffe2bf', '#2a1a10', 0.35));
   return { group, spot: new THREE.Vector3(30, 0.016, 0.1) };
 }

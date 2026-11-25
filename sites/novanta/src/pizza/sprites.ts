@@ -1,5 +1,6 @@
 import { canvas, loadImage, type Ctx } from '../lib/canvas';
 import { range, rng, type Rng } from '../lib/rand';
+import { mediaUrl } from '../lib/quality';
 
 /**
  * Sprite sheets for the toppings. Each sheet is a grid of square cells, one piece per cell on transparent
@@ -522,11 +523,11 @@ export function sheet(id: string, base: string): Promise<Sheet> {
   let p = cache.get(id);
   if (!p) {
     p = (async () => {
-      const meta = await fetch(`${base}media/toppings/${id}.json`)
+      const meta = await fetch(mediaUrl(base, `toppings/${id}.json`))
         .then((r) => (r.ok ? (r.json() as Promise<{ cells: Cell[] }>) : null))
         .catch(() => null);
       if (meta?.cells?.length) {
-        const img = await loadImage(`${base}media/toppings/${id}.webp`);
+        const img = await loadImage(mediaUrl(base, `toppings/${id}.webp`));
         if (img) return { image: img, cells: meta.cells, photo: true };
       }
       return drawSheet(id, id === 'burrata' ? 4 : 6);

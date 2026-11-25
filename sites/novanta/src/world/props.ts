@@ -1,11 +1,12 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
-import { canvas, colorTex, loadImage } from '../lib/canvas';
+import { canvas, colorTex, loadImage, shrink } from '../lib/canvas';
 import { rng } from '../lib/rand';
 import { CLASSICS } from '../pizza/catalog';
 import { BENCH, DOOR, ROOM, WINDOW } from './room';
 import { pbr } from './pbr';
 import { chalkboard } from './textures';
+import { LITE, mediaUrl } from '../lib/quality';
 
 /**
  * Everything that makes the room a Neapolitan pizzeria: the chalkboard menu, shelves of San Marzano tins and
@@ -246,7 +247,7 @@ function frame(w: number, h: number, sepia: number): THREE.Mesh {
   return m;
 }
 
-export async function buildProps(base: string, diploma: HTMLCanvasElement): Promise<Props & { diplomaTex: THREE.Texture }> {
+export async function buildProps(base: string, diploma: HTMLCanvasElement): Promise<Props & { diplomaTex: THREE.Texture; syncDiploma: () => void }> {
   const group = new THREE.Group();
   group.name = 'props';
   const anchors: Record<string, THREE.Vector3> = {};
@@ -280,7 +281,7 @@ export async function buildProps(base: string, diploma: HTMLCanvasElement): Prom
       g.textAlign = 'left';
     });
   });
-  const chalk = new THREE.Mesh(new THREE.PlaneGeometry(W, H), std({ map: colorTex(board), roughness: 0.95 }));
+  const chalk = new THREE.Mesh(new THREE.PlaneGeometry(W, H), std({ map: colorTex(shrink(board, LITE ? 0.55 : 1)), roughness: 0.95 }));
   chalk.position.set(0.35, 1.98, ROOM.z0 + 0.024);
   const chalkFrame = new THREE.Mesh(new THREE.BoxGeometry(W + 0.08, H + 0.08, 0.025), darkWood);
   chalkFrame.position.set(0.35, 1.98, ROOM.z0 + 0.008);
@@ -296,7 +297,7 @@ export async function buildProps(base: string, diploma: HTMLCanvasElement): Prom
   const picture = new THREE.SpotLight('#ffe2b8', 2.2, 2.2, 0.75, 0.7, 1.6);
   picture.position.set(0.35, 1.98 + H / 2 + 0.1, ROOM.z0 + 0.22);
   picture.target.position.set(0.35, 1.8, ROOM.z0);
-  group.add(picture, picture.target);
+  if (!LITE) group.add(picture, picture.target);
   anchors.menu = new THREE.Vector3(0.35, 2.3, ROOM.z0 + 0.1);
 
   // Shelves on the back wall, right of the menu.
@@ -367,7 +368,7 @@ export async function buildProps(base: string, diploma: HTMLCanvasElement): Prom
   });
   await Promise.all(
     photos.map(async (f) => {
-      const img = await loadImage(`${base}media/photos/${f.userData.photo as string}.webp`);
+      const img = await loadImage(mediaUrl(base, `photos/${f.userData.photo as string}.webp`));
       if (!img) return;
       const t = new THREE.Texture(img);
       t.colorSpace = THREE.SRGBColorSpace;
@@ -379,7 +380,13 @@ export async function buildProps(base: string, diploma: HTMLCanvasElement): Prom
   anchors.famiglia = new THREE.Vector3(ROOM.x0 + 0.1, 2.08, 0.6);
 
   // The visitor's diploma hangs next to the family: its texture is the live canvas the seals are pressed into.
-  const diplomaTex = new THREE.CanvasTexture(diploma);
+  // In lite the wall shows a half-size copy, redrawn whenever a seal is pressed.
+  const dipCanvas = LITE ? shrink(diploma, 0.5) : diploma;
+  const diplomaTex = new THREE.CanvasTexture(dipCanvas);
+  const syncDiploma = (): void => {
+    if (LITE) shrink(diploma, 0.5, dipCanvas);
+    diplomaTex.needsUpdate = true;
+  };
   diplomaTex.colorSpace = THREE.SRGBColorSpace;
   diplomaTex.anisotropy = 8;
   const dip = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.56), std({ map: diplomaTex, roughness: 0.7 }));
@@ -418,7 +425,7 @@ export async function buildProps(base: string, diploma: HTMLCanvasElement): Prom
   }
 
   // The alley outside the window and the door.
-  const alleyImg = await loadImage(`${base}media/scenes/s-alley.webp`);
+  const alleyImg = await loadImage(mediaUrl(base, 'scenes/s-alley.webp'));
   const alleyTex = alleyImg ? Object.assign(new THREE.Texture(alleyImg), { colorSpace: THREE.SRGBColorSpace, needsUpdate: true }) : null;
   const alley = new THREE.Mesh(
     new THREE.PlaneGeometry(9, 5.06),
@@ -454,5 +461,5 @@ export async function buildProps(base: string, diploma: HTMLCanvasElement): Prom
 
   anchors.banco = new THREE.Vector3(0.62, BENCH.top + 0.32, -2.0);
   anchors.forno = new THREE.Vector3(-1.55, 1.9, -1.4);
-  return { group, anchors, doughBalls: boxes.balls, radio: rad, photos, diplomaTex };
+  return { group, anchors, doughBalls: boxes.balls, radio: rad, photos, diplomaTex, syncDiploma };
 }

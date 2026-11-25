@@ -1,7 +1,8 @@
 import * as THREE from 'three';
-import { canvas, colorTex } from '../lib/canvas';
+import { canvas, colorTex, shrink } from '../lib/canvas';
 import { fbm2, hash2 } from '../lib/rand';
 import { paint } from '../lib/canvas';
+import { LITE } from '../lib/quality';
 
 /**
  * The pizza box: kraft board, printed in tomato red. The walls are hinged on the base, the lid on the back wall,
@@ -138,7 +139,7 @@ export class PizzaBox {
   lid = 1;
 
   constructor() {
-    const lidTex = colorTex(lidArt());
+    const lidTex = colorTex(shrink(lidArt(), LITE ? 0.5 : 1));
     const sideTex = colorTex(sideArt());
     const plainTex = colorTex(kraft(256, 256, 5).c);
     const inside = new THREE.MeshStandardMaterial({ map: plainTex, color: '#e8d2ae', roughness: 0.95, side: THREE.DoubleSide });

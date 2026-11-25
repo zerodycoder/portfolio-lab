@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
+import { mediaUrl } from '../lib/quality';
 
 /**
  * Photo-scanned PBR materials (CC0, from Poly Haven; fetched by tools/fetch-novanta-pbr.mjs): colour, OpenGL
@@ -7,7 +8,7 @@ import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
  * "repeats" so every surface keeps the material's real-world scale.
  */
 
-export type PbrName = 'stucco' | 'floor' | 'brick' | 'soot' | 'beam' | 'ceiling' | 'wood' | 'ochre' | 'oldplaster' | 'basalt' | 'shutter' | 'clay';
+export type PbrName = 'stucco' | 'floor' | 'brick' | 'soot' | 'beam' | 'ceiling' | 'wood' | 'oldplaster' | 'basalt' | 'shutter' | 'clay';
 
 export type PbrSet = { map: THREE.Texture; normalMap: THREE.Texture; arm: THREE.Texture };
 
@@ -26,7 +27,7 @@ function tex(url: string, srgb: boolean): Promise<THREE.Texture> {
 export function pbrSet(base: string, name: PbrName): Promise<PbrSet> {
   let p = cache.get(name);
   if (!p) {
-    const dir = `${base}media/pbr/${name}`;
+    const dir = mediaUrl(base, `pbr/${name}`);
     p = Promise.all([tex(`${dir}/diff.webp`, true), tex(`${dir}/nor.webp`, false), tex(`${dir}/arm.webp`, false)]).then(([map, normalMap, arm]) => ({ map, normalMap, arm }));
     cache.set(name, p);
   }
@@ -54,7 +55,7 @@ export async function pbr(base: string, name: PbrName, opts: THREE.MeshStandardM
 /** The HDR environment (a warm, fire-lit room) for reflections and soft fill light. */
 export async function loadEnv(renderer: THREE.WebGLRenderer, base: string): Promise<THREE.Texture | null> {
   try {
-    const hdr = await new HDRLoader().loadAsync(`${base}media/pbr/env.hdr`);
+    const hdr = await new HDRLoader().loadAsync(mediaUrl(base, 'pbr/env.hdr'));
     hdr.mapping = THREE.EquirectangularReflectionMapping;
     const pmrem = new THREE.PMREMGenerator(renderer);
     const env = pmrem.fromEquirectangular(hdr).texture;

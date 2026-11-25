@@ -6,6 +6,7 @@ import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { LITE } from '../lib/quality';
 
 /** Grain, vignette and a warm grade, applied after tone mapping (display space). */
 const FinishShader = {
@@ -93,6 +94,9 @@ export class Stage {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.localClippingEnabled = true;
+    // Checking every shader's status on first use forces the driver to finish compiling right then, on the main
+    // thread. In production the shaders are known good: let them complete in the background.
+    this.renderer.debug.checkShaderErrors = import.meta.env.DEV;
     this.scene.background = new THREE.Color('#120d0a');
 
     const pmrem = new THREE.PMREMGenerator(this.renderer);
@@ -127,6 +131,16 @@ export class Stage {
     this.scene.environmentIntensity = intensity;
   }
 
+  private dprScale = 1;
+
+  /** A device struggling at runtime: draw fewer pixels from now on (and remember lite for its next visit). */
+  downshift(): void {
+    if (this.dprScale < 1) return;
+    this.dprScale = 0.75;
+    this.width = 0;
+    this.resize();
+  }
+
   onResize(fn: () => void): void {
     this.listeners.add(fn);
   }
@@ -143,13 +157,14 @@ export class Stage {
     if (w === this.width && h === this.height) return;
     this.width = w;
     this.height = h;
-    const dpr = Math.min(window.devicePixelRatio || 1, this.mobile ? 1.6 : 1.75);
+    const dpr = Math.min(window.devicePixelRatio || 1, (LITE ? 1.25 : this.mobile ? 1.6 : 1.75) * this.dprScale);
     this.renderer.setPixelRatio(dpr);
     this.renderer.setSize(w, h, false);
     this.composer.setPixelRatio(dpr);
     this.composer.setSize(w, h);
     // Bloom is soft anyway: half resolution keeps phones cool.
-    this.bloom.resolution.set(Math.round((w * dpr) / 2), Math.round((h * dpr) / 2));
+    const bloomDiv = LITE ? 4 : 2;
+    this.bloom.resolution.set(Math.round((w * dpr) / bloomDiv), Math.round((h * dpr) / bloomDiv));
     this.camera.aspect = w / h;
     this.applyShift();
     this.listeners.forEach((fn) => fn());
@@ -240,8 +255,70 @@ export class Stage {
     requestAnimationFrame(loop);
   }
 
-  /** Compiles every material in the scene up front (the gate shows this as loading progress). */
-  async warm(): Promise<void> {
-    await this.renderer.compileAsync(this.scene, this.camera);
+  /**
+   * Compiles every shader the site will use, without blocking the page (KHR_parallel_shader_compile). The scene is
+   * drawn into the composer's half-float buffer (linear colour, no tone mapping), so its materials must be compiled
+   * for that target: compiling them for the canvas gives different programs, and the first frame then recompiles
+   * every one of them synchronously. The post-processing materials go on throwaway quads, compiled for the target
+   * each pass draws into.
+   */
+  async warm(onProgress?: (f: number) => void): Promise<void> {
+    const r = this.renderer;
+    const prev = r.getRenderTarget();
+    const geo = new THREE.PlaneGeometry(1, 1);
+    const quads = new THREE.Group();
+    const screen = new THREE.Group();
+    const seen = new Set<THREE.Material>();
+    const add = (m: unknown, to: THREE.Group): void => {
+      if (!(m instanceof THREE.Material) || seen.has(m)) return;
+      seen.add(m);
+      const q = new THREE.Mesh(geo, m);
+      q.frustumCulled = false;
+      to.add(q);
+    };
+    this.composer.passes.forEach((pass) => {
+      const toScreen = pass === this.finish;
+      Object.values(pass as unknown as Record<string, unknown>).forEach((v) => {
+        if (Array.isArray(v)) v.forEach((m) => add(m, toScreen ? screen : quads));
+        else add(v, toScreen ? screen : quads);
+      });
+    });
+    // Upload every texture to the GPU now, a couple per frame, so the first frame doesn't upload them all at once.
+    const textures = new Set<THREE.Texture>();
+    this.scene.traverse((o) => {
+      const mats = (o as THREE.Mesh).material;
+      (Array.isArray(mats) ? mats : mats ? [mats] : []).forEach((m) =>
+        Object.values(m).forEach((v) => {
+          if (v instanceof THREE.Texture && !(v as THREE.Texture & { isRenderTargetTexture?: boolean }).isRenderTargetTexture) textures.add(v);
+        }),
+      );
+    });
+    let n = 0;
+    for (const t of textures) {
+      n++;
+      if (!t.image) continue;
+      r.initTexture(t);
+      if (n % 3 === 0) {
+        onProgress?.((n / textures.size) * 0.7);
+        await new Promise((res) => requestAnimationFrame(res));
+      }
+    }
+    onProgress?.(0.7);
+    this.scene.add(quads);
+    try {
+      r.setRenderTarget(this.composer.readBuffer);
+      await r.compileAsync(this.scene, this.camera);
+      onProgress?.(0.95);
+      this.scene.remove(quads);
+      const screenScene = new THREE.Scene();
+      screenScene.add(screen);
+      r.setRenderTarget(null);
+      await r.compileAsync(screenScene, this.camera);
+      onProgress?.(1);
+    } finally {
+      this.scene.remove(quads);
+      r.setRenderTarget(prev);
+      geo.dispose();
+    }
   }
 }
