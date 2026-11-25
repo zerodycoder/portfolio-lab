@@ -70,6 +70,9 @@ function trouble(kind: Trouble, err?: unknown): void {
   const el = document.querySelector<HTMLElement>('[data-fallback]');
   if (!el) return;
   const [it, en, show] = TROUBLE[kind];
+  // The picture is only fetched when the card is actually shown.
+  const img = el.querySelector<HTMLImageElement>('img[data-src]');
+  if (img && !img.src) img.src = img.dataset.src!;
   el.querySelector('[data-fallback-it]')!.textContent = it;
   el.querySelector('[data-fallback-en]')!.textContent = en;
   (el.querySelector('[data-fallback-lite]') as HTMLElement).hidden = !show.lite || LITE;
