@@ -8,6 +8,7 @@ import type { Stage } from '../world/stage';
 import type { Input } from './input';
 import type { Stamps } from './stamps';
 import { closeSheet, euro, setPlace, sheet } from './ui';
+import { mediaUrl } from '../lib/quality';
 
 /**
  * The dining room and its corners. Hotspots float over the 3D room (projected from anchors every frame); each
@@ -202,15 +203,15 @@ export class Hub {
     sheet(
       `<p class="sheet__kicker">La famiglia</p>
       <h2 class="sheet__title">Three generations, one oven</h2>
-      <figure class="photo"><img src="${base}media/photos/p-1958.webp" alt="An old photograph of a young pizzaiolo in front of a wood-fired oven" /><figcaption>Nonno Gennaro, 1958, the week the oven was lit.</figcaption></figure>
+      <figure class="photo"><img src="${mediaUrl(base, 'photos/p-1958.webp')}" decoding="async" width="1200" height="675" alt="An old photograph of a young pizzaiolo in front of a wood-fired oven" /><figcaption>Nonno Gennaro, 1958, the week the oven was lit.</figcaption></figure>
       <div class="story">
         <p>He built the oven with his father from bricks of Sorrento tufa, and it has not gone cold for longer than a Sunday since. Six tables, one menu, the same dough.</p>
-        <figure class="photo"><img src="${base}media/photos/p-street.webp" alt="An old colour photograph of the pizzeria's door on a narrow Naples street" /><figcaption>Via Novanta, 1964. The boy with the pizza is our dad.</figcaption></figure>
+        <figure class="photo"><img src="${mediaUrl(base, 'photos/p-street.webp')}" decoding="async" width="1200" height="675" alt="An old colour photograph of the pizzeria's door on a narrow Naples street" /><figcaption>Via Novanta, 1964. The boy with the pizza is our dad.</figcaption></figure>
         <h3>What we still do the old way</h3>
         <p>Flour, water, salt and a little yeast, left to rise for 48 hours. San Marzano tomatoes crushed by hand. Fior di latte from the hills of Agerola. An oak fire at 485 °C, and ninety seconds, not one more.</p>
         <h3>Why “Novanta”</h3>
         <p>Novanta is Italian for ninety: the seconds a pizza spends in our oven.</p>
-        <figure class="photo"><img src="${base}media/photos/p-family.webp" alt="An old colour photograph of a family laughing around a table of pizzas" /><figcaption>Sundays, 1977.</figcaption></figure>
+        <figure class="photo"><img src="${mediaUrl(base, 'photos/p-family.webp')}" decoding="async" width="1200" height="675" alt="An old colour photograph of a family laughing around a table of pizzas" /><figcaption>Sundays, 1977.</figcaption></figure>
         <p class="fineprint">A made-up family and a made-up pizzeria: this is a portfolio piece. The pizza rules are real.</p>
       </div>`,
       { onClose: this.back },

@@ -33,7 +33,8 @@ import { buildProps } from './world/props';
 import { loadEnv } from './world/pbr';
 import { BOARD_SPOT, buildRoom } from './world/room';
 import { Stage } from './world/stage';
-import { LITE, preferLite, webgl2 } from './lib/quality';
+import { LITE, mediaUrl, preferLite, webgl2 } from './lib/quality';
+import { batchStatic } from './world/batch';
 
 const base = import.meta.env.BASE_URL;
 type Route = 'strada' | 'sala' | 'menu' | 'famiglia' | 'lievito' | 'fronte' | StepId | 'viaggio' | 'casa';
@@ -152,6 +153,7 @@ async function boot(): Promise<void> {
     step(0.08);
     await breathe();
     const room = await buildRoom(base);
+    batchStatic(room.group);
     stage.scene.add(room.group);
     step(0.22);
     say('Lighting the oven…');
@@ -165,6 +167,9 @@ async function boot(): Promise<void> {
     step(0.42);
     await breathe();
     details = await buildDetails(base, [new THREE.Vector3(-1.9, 0, 1.4), new THREE.Vector3(-0.4, 0, 1.6)]);
+    // Hundreds of small static parts become a few dozen draws (see batch.ts).
+    batchStatic(details.group);
+    batchStatic(props.group);
     stage.scene.add(details.group);
     stage.scene.add(props.group);
     step(0.5);
@@ -278,6 +283,7 @@ async function boot(): Promise<void> {
       closeSheet();
       leaveCurrent('impasto');
       route = 'impasto';
+      stage.shadowsLive = true;
       void kitchen.bakeClassic(cl);
     },
     go: (p) => go(p as Route),
@@ -351,6 +357,9 @@ async function boot(): Promise<void> {
     if (STEP_IDS.includes(next) && !kitchen.started) next = 'impasto';
     leaveCurrent(next);
     route = next;
+    // Shadow casters move in the kitchen (the pizza, toppings, the peel, the box); elsewhere shadows hold still.
+    stage.shadowsLive = STEP_IDS.includes(next);
+    stage.refreshShadows();
     backBtn.hidden = next === 'sala' || next === 'strada';
     if (push && location.hash.slice(1) !== next) history.pushState({ place: next }, '', `#${next}`);
     const sheetInsets = (): void => {
@@ -471,6 +480,7 @@ async function boot(): Promise<void> {
     pizza.setWedge(0, 0, 0);
     stage.setInsets({ top: 64, bottom: innerWidth <= 760 ? innerHeight * 0.42 : 0, left: 0, right: innerWidth <= 760 ? 0 : 440 });
     rig.jump('casa');
+    stage.shadowsLive = true;
     sound.doorbell();
     navigator.vibrate?.([60, 80, 60]);
     stamps.give('door');
@@ -538,6 +548,11 @@ async function boot(): Promise<void> {
   idle(() => {
     void getRapier();
     void pizza.preload();
+    ['p-1958', 'p-street', 'p-family'].forEach((n) => {
+      const img = new Image();
+      img.src = mediaUrl(base, `photos/${n}.webp`);
+      void img.decode().catch(() => undefined);
+    });
   });
   void withSound;
   $('[data-bar]').classList.add('is-on');

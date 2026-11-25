@@ -213,6 +213,11 @@ the street into the dining room and the kitchen, and out on a delivery.
   for the canvas gives different programs, which the first frame then recompiles synchronously, freezing the tab),
   post-processing included. Rendering starts only after that. Rapier and the toppings' pieces are built in idle time
   after entering, and awaited where they are needed. `vercel.json` makes hashed assets immutable and media cacheable.
+- **Smooth frames**: the room is built from hundreds of small parts; `src/world/batch.ts` merges every static mesh
+  that looks the same into one, so the dining room draws about 220 times a frame instead of almost 800. Shadow maps are
+  redrawn only while something that casts a shadow can move (the kitchen, the doorstep). No screen-space ambient
+  occlusion and no transmission (refractive glass): each would draw the whole scene once more every frame. The dough
+  is rebuilt only while it moves, with normals computed straight from its grid.
 - **Lite mode** (`src/lib/quality.ts`): for older and low-memory phones (4 GB or less, 4 cores or fewer, iOS before
   17), `?lite`, or remembered after a lost WebGL context or a slow first visit: half-size media from the `*-lite`
   folders (`tools/make-novanta-lite.mjs`), half-size drawn art, 9 lights instead of 19, a lower pixel ratio and

@@ -153,7 +153,8 @@ async function basilPot(base: string): Promise<THREE.Group> {
 function tableSetting(): THREE.Group {
   const g = new THREE.Group();
   const china = new THREE.MeshPhysicalMaterial({ color: '#f6f2ea', roughness: 0.25, clearcoat: 0.6 });
-  const glass = new THREE.MeshPhysicalMaterial({ color: '#ffffff', roughness: 0.05, transmission: 0.9, thickness: 0.01, ior: 1.5, transparent: true, opacity: 0.5 });
+  // Plain transparent glass: a transmission material would make three.js redraw the whole scene every frame.
+  const glass = new THREE.MeshPhysicalMaterial({ color: '#eef4f6', roughness: 0.05, clearcoat: 1, transparent: true, opacity: 0.28, depthWrite: false });
   const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.12, 0.018, 40), china);
   plate.position.y = 0.009;
   plate.receiveShadow = true;
@@ -244,6 +245,7 @@ export async function buildDetails(base: string, tables: THREE.Vector3[]): Promi
   blades.position.y = -0.4;
   fan.add(blades);
   fan.position.set(-1.1, ROOM.h - 0.18, 1.5);
+  blades.userData.keep = true;
   group.add(fan);
 
   // Dust drifting in the lamplight: tiny motes near the counter lamps and the oven.

@@ -162,10 +162,8 @@ export class Pizza {
   }
 
   update(dt: number): void {
-    if (this.working || this.phase === 'stretch') {
-      this.ring.step(Math.min(dt, 1 / 30));
-      this.dirty = true;
-    }
+    // While the dough is being worked the soft body runs, and the mesh is rebuilt only while it actually moves.
+    if ((this.working || this.phase === 'stretch') && this.ring.step(Math.min(dt, 1 / 30))) this.dirty = true;
     if (this.dirty) {
       this.shapeFromRing();
       this.doughGeo.update(this.shape);

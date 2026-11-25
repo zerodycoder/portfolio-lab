@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
-import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
@@ -68,8 +67,9 @@ export class Stage {
   readonly composer: EffectComposer;
   readonly bloom: UnrealBloomPass;
   readonly finish: ShaderPass;
-  /** Ground-truth ambient occlusion: contact shadows in every corner, joint and under every object (desktop). */
-  readonly ao: GTAOPass | null = null;
+  /** While true, the shadow maps are redrawn every frame (things that cast shadows are moving). */
+  shadowsLive = false;
+  private shadowFrames = 2;
   readonly canvas: HTMLCanvasElement;
   readonly mobile: boolean;
   width = 1;
@@ -92,6 +92,9 @@ export class Stage {
     this.renderer.toneMapping = THREE.NeutralToneMapping;
     this.renderer.toneMappingExposure = 1.0;
     this.renderer.shadowMap.enabled = true;
+    // Shadow maps are re-rendered only while something that casts a shadow can move (the kitchen, the doorstep);
+    // elsewhere they are drawn once. Each update draws every shadow caster again.
+    this.renderer.shadowMap.autoUpdate = false;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.localClippingEnabled = true;
     // Checking every shader's status on first use forces the driver to finish compiling right then, on the main
@@ -107,14 +110,6 @@ export class Stage {
     const target = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: this.mobile ? 0 : 4 });
     this.composer = new EffectComposer(this.renderer, target);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
-    if (!this.mobile) {
-      const ao = new GTAOPass(this.scene, this.camera, 512, 512);
-      ao.updateGtaoMaterial({ radius: 0.35, distanceExponent: 1.6, thickness: 1.2, scale: 1.1, samples: 16 });
-      ao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 16 });
-      ao.blendIntensity = 0.9;
-      this.composer.addPass(ao);
-      this.ao = ao;
-    }
     this.bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.35, 0.5, 2.2);
     this.composer.addPass(this.bloom);
     this.composer.addPass(new OutputPass());
@@ -123,6 +118,11 @@ export class Stage {
 
     this.resize();
     new ResizeObserver(() => this.resize()).observe(canvas);
+  }
+
+  /** Redraw the shadow maps on the next couple of frames (something moved once). */
+  refreshShadows(): void {
+    this.shadowFrames = 2;
   }
 
   /** Swaps the room-environment reflections for a real HDR environment. */
@@ -249,6 +249,7 @@ export class Stage {
       const dt = Math.min(0.05, this.clock.getDelta());
       const t = this.clock.getElapsed();
       this.tickers.forEach((fn) => fn(dt, t));
+      this.renderer.shadowMap.needsUpdate = this.shadowsLive || this.shadowFrames-- > 0;
       this.finish.uniforms.uTime.value = t;
       this.composer.render(dt);
     };

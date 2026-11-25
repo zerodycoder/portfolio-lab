@@ -134,8 +134,56 @@ export class DoughGeometry {
     p.needsUpdate = true;
     (this.geometry.getAttribute('uv') as THREE.BufferAttribute).needsUpdate = true;
     (this.geometry.getAttribute('aZone') as THREE.BufferAttribute).needsUpdate = true;
-    this.geometry.computeVertexNormals();
-    this.geometry.computeBoundingSphere();
+    this.normals();
+    let maxR = 0;
+    for (let j = 0; j < SEG; j++) maxR = Math.max(maxR, s.radii[j]);
+    const sphere = this.geometry.boundingSphere ?? (this.geometry.boundingSphere = new THREE.Sphere());
+    sphere.center.set(0, 0.015, 0);
+    sphere.radius = maxR + 0.05;
+  }
+
+  /**
+   * Normals straight from the grid: the cross product of the two neighbours around (angle) and along (profile).
+   * Same result as computeVertexNormals for this surface, a fraction of the cost, and no allocations: the dough is
+   * rebuilt every frame while it is being stretched.
+   */
+  private normals(): void {
+    const p = this.pos;
+    const attr = this.geometry.getAttribute('normal') as THREE.BufferAttribute | undefined;
+    const n = attr ? (attr.array as Float32Array) : new Float32Array(p.length);
+    for (let j = 0; j < SEG; j++) {
+      const jp = ((j + 1) % SEG) * K;
+      const jm = ((j + SEG - 1) % SEG) * K;
+      for (let k = 0; k < K; k++) {
+        const i = (j * K + k) * 3;
+        const a = (jp + k) * 3;
+        const b = (jm + k) * 3;
+        const c = (j * K + Math.min(K - 1, k + 1)) * 3;
+        const d = (j * K + Math.max(0, k - 1)) * 3;
+        // Tj: around the dough; Tk: along the profile (outwards on top, inwards underneath).
+        const tjx = p[a] - p[b], tjy = p[a + 1] - p[b + 1], tjz = p[a + 2] - p[b + 2];
+        const tkx = p[c] - p[d], tky = p[c + 1] - p[d + 1], tkz = p[c + 2] - p[d + 2];
+        let nx = tjy * tkz - tjz * tky;
+        let ny = tjz * tkx - tjx * tkz;
+        let nz = tjx * tky - tjy * tkx;
+        const l = Math.hypot(nx, ny, nz);
+        if (l < 1e-12) {
+          // The centre point of the top (k = 0) or of the underside (last k) has no width around it.
+          nx = 0;
+          ny = k === 0 ? 1 : -1;
+          nz = 0;
+        } else {
+          nx /= l;
+          ny /= l;
+          nz /= l;
+        }
+        n[i] = nx;
+        n[i + 1] = ny;
+        n[i + 2] = nz;
+      }
+    }
+    if (attr) attr.needsUpdate = true;
+    else this.geometry.setAttribute('normal', new THREE.BufferAttribute(n, 3));
   }
 
   /** The middle's surface height at a point (pizza space), for dropping toppings onto it. */
@@ -223,7 +271,8 @@ export class DoughRing {
     this.pullW.fill(0);
   }
 
-  step(dt: number): void {
+  /** Advances the soft body. Returns whether the outline is still moving (the dough needs rebuilding). */
+  step(dt: number): boolean {
     const k = 220;
     const damp = 2 * Math.sqrt(k) * 0.85;
     const yieldGap = 0.004;
@@ -247,5 +296,8 @@ export class DoughRing {
       const next = this.rest[(i + 1) % SEG];
       this.rest[i] += ((prev + next) / 2 - this.rest[i]) * Math.min(1, dt * 1.5);
     }
+    let moving = false;
+    for (let i = 0; i < SEG && !moving; i++) moving = Math.abs(this.v[i]) > 1e-4 || this.pullW[i] > 0.02 || Math.abs(this.r[i] - this.rest[i]) > 1e-4;
+    return moving;
   }
 }

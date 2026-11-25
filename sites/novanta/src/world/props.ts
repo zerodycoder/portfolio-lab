@@ -332,6 +332,8 @@ export async function buildProps(base: string, diploma: HTMLCanvasElement): Prom
   const boxes = doughBoxes(woodMat);
   boxes.group.position.set(2.25, BENCH.top, -2.12);
   boxes.group.rotation.y = -0.08;
+  // The balls rise with the clock (hub.ts scales them).
+  boxes.balls.forEach((b) => (b.userData.keep = true));
   group.add(boxes.group);
   anchors.lievito = new THREE.Vector3(2.25, BENCH.top + 0.35, -2.05);
 
