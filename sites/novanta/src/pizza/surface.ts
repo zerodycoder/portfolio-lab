@@ -54,6 +54,26 @@ export const GLSL_WEDGE = /* glsl */ `
   }
 `;
 
+/**
+ * The dough's shadow. The shadow pass draws with a depth material of its own, which knows nothing of the wedge
+ * discard: a lifted slice (a copy of the whole pizza, cut down by the shader) cast the shadow of the whole pizza, and
+ * the gap it left in the pizza still cast one. This one cuts the same wedge.
+ */
+export function surfaceDepth(uniforms: Pick<SurfaceUniforms, 'uWedge'>): THREE.MeshDepthMaterial {
+  const material = new THREE.MeshDepthMaterial();
+  material.onBeforeCompile = (shader) => {
+    shader.uniforms.uWedge = uniforms.uWedge;
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', `#include <common>\n        varying vec3 vLocal;`)
+      .replace('#include <begin_vertex>', `#include <begin_vertex>\n        vLocal = position;`);
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', `#include <common>\n        varying vec3 vLocal;\n        ${GLSL_WEDGE}`)
+      .replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>\n        if (pzOutsideWedge(vLocal.xz)) discard;`);
+  };
+  material.customProgramCacheKey = () => 'pizza-surface-depth';
+  return material;
+}
+
 export function createSurface(maps: SurfaceMaps): { material: THREE.MeshStandardMaterial; uniforms: SurfaceUniforms } {
   const uniforms: SurfaceUniforms = {
     uTime: { value: 0 },

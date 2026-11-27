@@ -193,6 +193,53 @@ export type PieceUniforms = {
   uPiece: { value: THREE.Matrix4 };
 };
 
+/**
+ * A piece's shadow: the same curl, wedge and dissolve as its material (see surfaceDepth), so a lifted slice's toppings
+ * shadow only the slice, and a topping that is cut away or melting casts no shadow of what is gone. The shadow pass
+ * copies the material's map and alphaTest onto it, so the cut-out shapes still apply.
+ */
+export function pieceDepth(uniforms: PieceUniforms): THREE.MeshDepthMaterial {
+  const material = new THREE.MeshDepthMaterial();
+  material.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, { uWedge: uniforms.uWedge, uPiece: uniforms.uPiece, uCurl: uniforms.uCurl, uR2: uniforms.uR2, uDissolve: uniforms.uDissolve });
+    shader.vertexShader = shader.vertexShader
+      .replace(
+        '#include <common>',
+        `#include <common>
+        attribute float aEdge;
+        uniform float uCurl, uR2;
+        uniform mat4 uPiece;
+        varying float vEdge;
+        varying vec3 vPL;`,
+      )
+      .replace(
+        '#include <begin_vertex>',
+        `#include <begin_vertex>
+        transformed.y += uCurl * dot(position.xz, position.xz) / uR2;
+        vEdge = aEdge;
+        vPL = (uPiece * vec4(transformed, 1.0)).xyz;`,
+      );
+    shader.fragmentShader = shader.fragmentShader
+      .replace(
+        '#include <common>',
+        `#include <common>
+        uniform float uDissolve;
+        varying float vEdge;
+        varying vec3 vPL;
+        ${GLSL_NOISE}
+        ${GLSL_WEDGE}`,
+      )
+      .replace(
+        '#include <clipping_planes_fragment>',
+        `#include <clipping_planes_fragment>
+        if (pzOutsideWedge(vPL.xz)) discard;
+        if (uDissolve > 0.001 && pzNoise(vPL.xz * 900.0) * 0.8 + vEdge * 0.35 < uDissolve) discard;`,
+      );
+  };
+  material.customProgramCacheKey = () => 'pizza-piece-depth';
+  return material;
+}
+
 /** One material per piece (the cook state is per piece); all share one compiled program. */
 export function pieceMaterial(a: KindAssets, v: Variant): { material: THREE.MeshStandardMaterial; uniforms: PieceUniforms } {
   const k = a.kind;

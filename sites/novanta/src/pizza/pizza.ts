@@ -3,9 +3,9 @@ import { range, rng, type Rng } from '../lib/rand';
 import { KIND, MAX_TOPPING_KINDS, SIZES, type DrizzleId, type Kind, type SauceId, KINDS, DRIZZLES, SAUCES } from './catalog';
 import { DoughGeometry, DoughRing, SEG, defaultShape, type DoughShape } from './dough';
 import { Layers, detailTiles } from './layers';
-import { loadKind, pieceMaterial, type KindAssets, type PieceUniforms } from './pieces';
+import { loadKind, pieceDepth, pieceMaterial, type KindAssets, type PieceUniforms } from './pieces';
 import type { Physics } from './physics';
-import { createSurface, type SurfaceMaps, type SurfaceUniforms } from './surface';
+import { createSurface, surfaceDepth, type SurfaceMaps, type SurfaceUniforms } from './surface';
 
 export type Piece = {
   kind: Kind;
@@ -63,6 +63,7 @@ export class Pizza {
     this.r = rng(this.seed);
     this.surface = surface;
     this.dough = new THREE.Mesh(this.doughGeo.geometry, material);
+    this.dough.customDepthMaterial = surfaceDepth(surface);
     this.dough.castShadow = true;
     this.dough.receiveShadow = true;
     this.dough.name = 'dough';
@@ -208,6 +209,7 @@ export class Pizza {
     const vv = a.variants[v % a.variants.length];
     const { material, uniforms } = pieceMaterial(a, vv);
     const mesh = new THREE.Mesh(vv.geometry, material);
+    mesh.customDepthMaterial = pieceDepth(uniforms);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     const s = scale ?? range(this.r, 0.86, 1.14);
@@ -345,6 +347,7 @@ export class Pizza {
     uniforms.uCuts.value = [...this.surface.uCuts.value];
     uniforms.uFlour.value = this.surface.uFlour.value;
     const dough = new THREE.Mesh(this.dough.geometry, material);
+    dough.customDepthMaterial = surfaceDepth(uniforms);
     dough.castShadow = true;
     group.add(dough);
     const pieces: Piece[] = [];
